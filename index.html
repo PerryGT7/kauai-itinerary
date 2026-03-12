@@ -287,6 +287,49 @@
             color: var(--text-light);
         }
 
+        /* Weather badge */
+        .weather-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-shrink: 0;
+            margin-left: auto;
+            margin-right: 0.75rem;
+        }
+        .weather-icon {
+            font-size: 1.4rem;
+            line-height: 1;
+        }
+        .weather-temps {
+            text-align: right;
+            line-height: 1.2;
+        }
+        .weather-hi {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .weather-lo {
+            font-size: 0.7rem;
+            color: var(--text-light);
+        }
+        .weather-precip {
+            font-size: 0.65rem;
+            color: var(--ocean);
+            font-weight: 600;
+            text-align: right;
+        }
+        .weather-loading {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            opacity: 0.5;
+        }
+        .weather-error {
+            font-size: 0.65rem;
+            color: var(--text-light);
+            opacity: 0.4;
+        }
+
         /* Footer */
         footer {
             text-align: center;
@@ -347,12 +390,13 @@
 <div class="container">
 
     <!-- Day 0: Sunday March 15 -->
-    <div class="day-card" id="day0">
+    <div class="day-card" id="day0" data-date="2026-03-15" data-location="atl">
         <div class="day-header" onclick="toggleDay(this)">
             <div>
                 <h2>Day 1</h2>
                 <span class="day-date">Sunday, March 15 &mdash; Travel Day</span>
             </div>
+            <div class="weather-badge"><span class="weather-loading">...</span></div>
             <span class="chevron">&#9662;</span>
         </div>
         <div class="day-body">
@@ -375,12 +419,13 @@
     </div>
 
     <!-- Day 1: Monday March 16 -->
-    <div class="day-card" id="day1">
+    <div class="day-card" id="day1" data-date="2026-03-16" data-location="kauai">
         <div class="day-header" onclick="toggleDay(this)">
             <div>
                 <h2>Day 2</h2>
                 <span class="day-date">Monday, March 16 &mdash; Fly to Kauai</span>
             </div>
+            <div class="weather-badge"><span class="weather-loading">...</span></div>
             <span class="chevron">&#9662;</span>
         </div>
         <div class="day-body">
@@ -411,12 +456,13 @@
     </div>
 
     <!-- Day 2: Tuesday March 17 -->
-    <div class="day-card open" id="day2">
+    <div class="day-card open" id="day2" data-date="2026-03-17" data-location="kauai">
         <div class="day-header" onclick="toggleDay(this)">
             <div>
                 <h2>Day 3</h2>
                 <span class="day-date">Tuesday, March 17 &mdash; Poipu Beach Day</span>
             </div>
+            <div class="weather-badge"><span class="weather-loading">...</span></div>
             <span class="chevron">&#9662;</span>
         </div>
         <div class="day-body">
@@ -464,12 +510,13 @@
     </div>
 
     <!-- Day 3: Wednesday March 18 -->
-    <div class="day-card" id="day3">
+    <div class="day-card" id="day3" data-date="2026-03-18" data-location="kauai">
         <div class="day-header" onclick="toggleDay(this)">
             <div>
                 <h2>Day 4</h2>
                 <span class="day-date">Wednesday, March 18 &mdash; Helicopter &amp; Canyon</span>
             </div>
+            <div class="weather-badge"><span class="weather-loading">...</span></div>
             <span class="chevron">&#9662;</span>
         </div>
         <div class="day-body">
@@ -519,12 +566,13 @@
     </div>
 
     <!-- Day 4: Thursday March 19 -->
-    <div class="day-card" id="day4">
+    <div class="day-card" id="day4" data-date="2026-03-19" data-location="kauai">
         <div class="day-header" onclick="toggleDay(this)">
             <div>
                 <h2>Day 5</h2>
                 <span class="day-date">Thursday, March 19 &mdash; Trail, Surf &amp; Beach</span>
             </div>
+            <div class="weather-badge"><span class="weather-loading">...</span></div>
             <span class="chevron">&#9662;</span>
         </div>
         <div class="day-body">
@@ -563,12 +611,13 @@
     </div>
 
     <!-- Day 5: Friday March 20 -->
-    <div class="day-card" id="day5">
+    <div class="day-card" id="day5" data-date="2026-03-20" data-location="kauai">
         <div class="day-header" onclick="toggleDay(this)">
             <div>
                 <h2>Day 6</h2>
                 <span class="day-date">Friday, March 20 &mdash; ATV &amp; Luau</span>
             </div>
+            <div class="weather-badge"><span class="weather-loading">...</span></div>
             <span class="chevron">&#9662;</span>
         </div>
         <div class="day-body">
@@ -592,12 +641,13 @@
     </div>
 
     <!-- Day 6: Saturday March 21 -->
-    <div class="day-card" id="day6">
+    <div class="day-card" id="day6" data-date="2026-03-21" data-location="kauai">
         <div class="day-header" onclick="toggleDay(this)">
             <div>
                 <h2>Day 7</h2>
                 <span class="day-date">Saturday, March 21 &mdash; Plantation &amp; Hike</span>
             </div>
+            <div class="weather-badge"><span class="weather-loading">...</span></div>
             <span class="chevron">&#9662;</span>
         </div>
         <div class="day-body">
@@ -628,12 +678,13 @@
     </div>
 
     <!-- Day 7: Sunday March 22 -->
-    <div class="day-card" id="day7">
+    <div class="day-card" id="day7" data-date="2026-03-22" data-location="kauai">
         <div class="day-header" onclick="toggleDay(this)">
             <div>
                 <h2>Day 8</h2>
                 <span class="day-date">Sunday, March 22 &mdash; North Shore</span>
             </div>
+            <div class="weather-badge"><span class="weather-loading">...</span></div>
             <span class="chevron">&#9662;</span>
         </div>
         <div class="day-body">
@@ -669,12 +720,13 @@
     </div>
 
     <!-- Day 8: Monday March 23 -->
-    <div class="day-card" id="day8">
+    <div class="day-card" id="day8" data-date="2026-03-23" data-location="kauai">
         <div class="day-header" onclick="toggleDay(this)">
             <div>
                 <h2>Day 9</h2>
                 <span class="day-date">Monday, March 23 &mdash; Departure</span>
             </div>
+            <div class="weather-badge"><span class="weather-loading">...</span></div>
             <span class="chevron">&#9662;</span>
         </div>
         <div class="day-body">
@@ -698,12 +750,13 @@
     </div>
 
     <!-- Day 9: Tuesday March 24 -->
-    <div class="day-card" id="day9">
+    <div class="day-card" id="day9" data-date="2026-03-24" data-location="atl">
         <div class="day-header" onclick="toggleDay(this)">
             <div>
                 <h2>Day 10</h2>
                 <span class="day-date">Tuesday, March 24 &mdash; Home</span>
             </div>
+            <div class="weather-badge"><span class="weather-loading">...</span></div>
             <span class="chevron">&#9662;</span>
         </div>
         <div class="day-body">
@@ -855,6 +908,121 @@ document.querySelectorAll('.day-nav a').forEach(a => {
         }
     });
 });
+
+// --- Weather via Open-Meteo (free, no API key) ---
+const WMO_ICONS = {
+    0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
+    45: '🌫️', 48: '🌫️',
+    51: '🌦️', 53: '🌦️', 55: '🌦️',
+    56: '🌧️', 57: '🌧️',
+    61: '🌧️', 63: '🌧️', 65: '🌧️',
+    66: '🌧️', 67: '🌧️',
+    71: '🌨️', 73: '🌨️', 75: '🌨️', 77: '🌨️',
+    80: '🌦️', 81: '🌧️', 82: '🌧️',
+    85: '🌨️', 86: '🌨️',
+    95: '⛈️', 96: '⛈️', 99: '⛈️',
+};
+
+const LOCATIONS = {
+    kauai: { lat: 21.88, lng: -159.45, label: 'Poipu' },
+    atl:   { lat: 33.64, lng: -84.43,  label: 'Atlanta' },
+};
+
+function renderWeather(badge, icon, hi, lo, precip) {
+    badge.innerHTML = `
+        <span class="weather-icon">${icon}</span>
+        <div class="weather-temps">
+            <div class="weather-hi">${Math.round(hi)}°</div>
+            <div class="weather-lo">${Math.round(lo)}°</div>
+        </div>
+        ${precip > 0 ? `<div class="weather-precip">💧${precip}%</div>` : ''}
+    `;
+}
+
+async function fetchWeather(loc, startDate, endDate) {
+    const { lat, lng } = LOCATIONS[loc];
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Split into past dates (archive API) and future dates (forecast API)
+    const pastEnd = startDate < today ? (endDate < today ? endDate : today) : null;
+    const futureStart = endDate >= today ? (startDate >= today ? startDate : today) : null;
+
+    const results = {};
+
+    // Fetch past weather if needed
+    if (pastEnd && startDate <= pastEnd) {
+        try {
+            const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&temperature_unit=fahrenheit&timezone=auto&start_date=${startDate}&end_date=${pastEnd}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.daily) {
+                data.daily.time.forEach((d, i) => {
+                    results[d] = {
+                        code: data.daily.weather_code[i],
+                        hi: data.daily.temperature_2m_max[i],
+                        lo: data.daily.temperature_2m_min[i],
+                        precip: null, // archive doesn't have probability
+                    };
+                });
+            }
+        } catch (e) { /* ignore archive errors */ }
+    }
+
+    // Fetch forecast if needed
+    if (futureStart && futureStart <= endDate) {
+        try {
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=auto&start_date=${futureStart}&end_date=${endDate}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.daily) {
+                data.daily.time.forEach((d, i) => {
+                    results[d] = {
+                        code: data.daily.weather_code[i],
+                        hi: data.daily.temperature_2m_max[i],
+                        lo: data.daily.temperature_2m_min[i],
+                        precip: data.daily.precipitation_probability_max[i],
+                    };
+                });
+            }
+        } catch (e) { /* ignore forecast errors */ }
+    }
+
+    return results;
+}
+
+async function loadAllWeather() {
+    // Group cards by location
+    const groups = {};
+    document.querySelectorAll('.day-card[data-date]').forEach(card => {
+        const loc = card.dataset.location || 'kauai';
+        if (!groups[loc]) groups[loc] = [];
+        groups[loc].push(card);
+    });
+
+    for (const [loc, cards] of Object.entries(groups)) {
+        const dates = cards.map(c => c.dataset.date).sort();
+        const startDate = dates[0];
+        const endDate = dates[dates.length - 1];
+
+        const weather = await fetchWeather(loc, startDate, endDate);
+
+        cards.forEach(card => {
+            const date = card.dataset.date;
+            const badge = card.querySelector('.weather-badge');
+            if (!badge) return;
+
+            if (weather[date] && weather[date].hi != null) {
+                const w = weather[date];
+                const icon = WMO_ICONS[w.code] || '🌡️';
+                renderWeather(badge, icon, w.hi, w.lo, w.precip || 0);
+            } else {
+                badge.innerHTML = '<span class="weather-error">No forecast yet</span>';
+            }
+        });
+    }
+}
+
+loadAllWeather();
 </script>
 
 </body>

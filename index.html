@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kauai Trip Itinerary</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ocean: #0077b6;
+            --ocean-dark: #005f8a;
+            --sand: #f5e6ca;
+            --sand-light: #faf3e8;
+            --palm: #2d6a4f;
+            --palm-light: #40916c;
+            --sunset: #e07a5f;
+            --sunset-light: #f2a585;
+            --lava: #d62828;
+            --plumeria: #f8c8dc;
+            --text: #2b2b2b;
+            --text-light: #555;
+            --white: #ffffff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--sand-light);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, var(--ocean) 0%, var(--palm) 50%, var(--ocean-dark) 100%);
+            color: var(--white);
+            padding: 3rem 1.25rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at 30% 50%, rgba(255,255,255,0.08) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .hero h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.2rem;
+            margin-bottom: 0.25rem;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .hero .subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+        .hero .dates {
+            margin-top: 0.75rem;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        .hero .wave {
+            display: block;
+            width: 100%;
+            height: 40px;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+        }
+
+        /* Nav pills */
+        .day-nav {
+            display: flex;
+            gap: 0.4rem;
+            padding: 1rem 1rem 0.5rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .day-nav::-webkit-scrollbar { display: none; }
+        .day-nav a {
+            flex-shrink: 0;
+            padding: 0.4rem 0.75rem;
+            border-radius: 999px;
+            background: var(--white);
+            color: var(--ocean);
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1.5px solid var(--ocean);
+            transition: all 0.2s;
+        }
+        .day-nav a:hover, .day-nav a:active {
+            background: var(--ocean);
+            color: var(--white);
+        }
+
+        /* Map */
+        .map-section {
+            padding: 1rem;
+        }
+        .map-section h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            color: var(--ocean-dark);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        #map {
+            height: 350px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            z-index: 0;
+        }
+        .map-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            font-size: 0.75rem;
+        }
+        .map-legend span {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        /* Day cards */
+        .container { padding: 0.5rem 1rem 2rem; }
+
+        .day-card {
+            background: var(--white);
+            border-radius: 16px;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            overflow: hidden;
+        }
+        .day-header {
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .day-header:active { background: rgba(0,0,0,0.02); }
+        .day-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            color: var(--ocean-dark);
+        }
+        .day-header .day-date {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+        .day-header .chevron {
+            font-size: 1.2rem;
+            color: var(--ocean);
+            transition: transform 0.3s;
+        }
+        .day-card.open .chevron { transform: rotate(180deg); }
+        .day-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+        }
+        .day-card.open .day-body { max-height: 2000px; }
+        .day-content { padding: 0 1.25rem 1.25rem; }
+
+        /* Items */
+        .item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid #f0ebe3;
+            align-items: flex-start;
+        }
+        .item:last-child { border-bottom: none; }
+        .item-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .icon-travel { background: #e3f2fd; }
+        .icon-stay { background: #e8f5e9; }
+        .icon-food { background: #fff3e0; }
+        .icon-activity { background: #fce4ec; }
+        .icon-sight { background: #e8eaf6; }
+
+        .item-text { flex: 1; min-width: 0; }
+        .item-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .item-detail {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-top: 0.15rem;
+            line-height: 1.4;
+        }
+        .item-time {
+            font-size: 0.75rem;
+            color: var(--sunset);
+            font-weight: 600;
+        }
+
+        /* Links */
+        a.place-link {
+            color: var(--ocean);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--ocean);
+            transition: color 0.2s;
+        }
+        a.place-link:hover { color: var(--ocean-dark); }
+
+        /* Other restaurants */
+        .extras {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .extras h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            color: var(--ocean-dark);
+            margin-bottom: 0.75rem;
+        }
+        .restaurant-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+        .restaurant-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 0.7rem;
+            background: var(--sand);
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .restaurant-chip a {
+            color: var(--text);
+            text-decoration: none;
+        }
+        .restaurant-chip a:hover { color: var(--ocean); }
+
+        /* Confirmation numbers */
+        .conf-num {
+            display: inline-block;
+            background: var(--sand);
+            padding: 0.1rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-family: monospace;
+            color: var(--text-light);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: var(--text-light);
+            font-size: 0.8rem;
+        }
+
+        /* Tablet+ */
+        @media (min-width: 640px) {
+            .container, .map-section { max-width: 600px; margin-left: auto; margin-right: auto; }
+            .hero h1 { font-size: 2.8rem; }
+            #map { height: 450px; }
+            .restaurant-grid { grid-template-columns: 1fr 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Hero -->
+<header class="hero">
+    <div style="font-size: 2rem; margin-bottom: 0.5rem;">🌺</div>
+    <h1>Kauai</h1>
+    <p class="subtitle">The Garden Isle</p>
+    <p class="dates">March 15 &ndash; 24, 2026</p>
+    <svg class="wave" viewBox="0 0 1440 40" preserveAspectRatio="none">
+        <path d="M0,20 C360,40 720,0 1080,20 C1260,30 1380,25 1440,20 L1440,40 L0,40 Z" fill="#faf3e8"/>
+    </svg>
+</header>
+
+<!-- Day navigation -->
+<nav class="day-nav">
+    <a href="#day0">Sun 3/15</a>
+    <a href="#day1">Mon 3/16</a>
+    <a href="#day2">Tue 3/17</a>
+    <a href="#day3">Wed 3/18</a>
+    <a href="#day4">Thu 3/19</a>
+    <a href="#day5">Fri 3/20</a>
+    <a href="#day6">Sat 3/21</a>
+    <a href="#day7">Sun 3/22</a>
+    <a href="#day8">Mon 3/23</a>
+    <a href="#day9">Tue 3/24</a>
+</nav>
+
+<!-- Map -->
+<section class="map-section">
+    <h2>🗺 Trip Map</h2>
+    <div id="map"></div>
+    <div class="map-legend">
+        <span><span class="legend-dot" style="background:#0077b6;"></span> Lodging</span>
+        <span><span class="legend-dot" style="background:#e07a5f;"></span> Food</span>
+        <span><span class="legend-dot" style="background:#2d6a4f;"></span> Activities</span>
+        <span><span class="legend-dot" style="background:#7b68ee;"></span> Sights</span>
+    </div>
+</section>
+
+<!-- Itinerary -->
+<div class="container">
+
+    <!-- Day 0: Sunday March 15 -->
+    <div class="day-card" id="day0">
+        <div class="day-header" onclick="toggleDay(this)">
+            <div>
+                <h2>Day 1</h2>
+                <span class="day-date">Sunday, March 15 &mdash; Travel Day</span>
+            </div>
+            <span class="chevron">&#9662;</span>
+        </div>
+        <div class="day-body">
+            <div class="day-content">
+                <div class="item">
+                    <div class="item-icon icon-travel">🚗</div>
+                    <div class="item-text">
+                        <div class="item-label">Drive to Atlanta</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-stay">🏨</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/SpringHill+Suites+Marriott+Atlanta+Airport+Gateway" target="_blank" rel="noopener">SpringHill Suites &mdash; ATL Airport Gateway</a></div>
+                        <div class="item-detail"><span class="conf-num">81684058</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day 1: Monday March 16 -->
+    <div class="day-card" id="day1">
+        <div class="day-header" onclick="toggleDay(this)">
+            <div>
+                <h2>Day 2</h2>
+                <span class="day-date">Monday, March 16 &mdash; Fly to Kauai</span>
+            </div>
+            <span class="chevron">&#9662;</span>
+        </div>
+        <div class="day-body">
+            <div class="day-content">
+                <div class="item">
+                    <div class="item-icon icon-travel">✈️</div>
+                    <div class="item-text">
+                        <div class="item-label">Fly ATL &rarr; Lihue (LIH)</div>
+                        <div class="item-detail">~16 hours of flights; arrive late afternoon</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-travel">🚗</div>
+                    <div class="item-text">
+                        <div class="item-label">Rental Car &mdash; Hertz</div>
+                        <div class="item-detail">Medium convertible <span class="conf-num">L3261656230</span></div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-stay">🏨</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Koloa+Landing+Resort+Poipu+Kauai" target="_blank" rel="noopener">Koloa Landing Resort</a></div>
+                        <div class="item-detail">25 min drive from LIH <span class="conf-num">70441935</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day 2: Tuesday March 17 -->
+    <div class="day-card open" id="day2">
+        <div class="day-header" onclick="toggleDay(this)">
+            <div>
+                <h2>Day 3</h2>
+                <span class="day-date">Tuesday, March 17 &mdash; Poipu Beach Day</span>
+            </div>
+            <span class="chevron">&#9662;</span>
+        </div>
+        <div class="day-body">
+            <div class="day-content">
+                <div class="item">
+                    <div class="item-icon icon-activity">🏖️</div>
+                    <div class="item-text">
+                        <div class="item-label">Relax &amp; Explore</div>
+                        <div class="item-detail">
+                            <a class="place-link" href="https://www.google.com/maps/search/Poipu+Beach+Park+Kauai" target="_blank" rel="noopener">Poipu Beach</a> (sea turtles!) &amp;
+                            <a class="place-link" href="https://www.google.com/maps/search/Shipwreck+Beach+Kauai" target="_blank" rel="noopener">Shipwreck Beach</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-sight">📸</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Spouting+Horn+Kauai" target="_blank" rel="noopener">Spouting Horn</a></div>
+                        <div class="item-detail">Natural ocean blowhole</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-food">🌭</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Puka+Dog+Poipu+Kauai" target="_blank" rel="noopener">Puka Dog</a></div>
+                        <div class="item-detail">Lunch &mdash; famous Hawaiian-style hot dogs</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-food">🍦</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Lapperts+Ice+Cream+Koloa+Kauai" target="_blank" rel="noopener">Lappert's Ice Cream</a></div>
+                        <div class="item-detail">Local favorite in Old Koloa Town</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-food">🍽️</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Keokis+Paradise+Poipu+Kauai" target="_blank" rel="noopener">Keoki's Paradise</a></div>
+                        <div class="item-detail"><span class="item-time">5:45 PM reservation</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day 3: Wednesday March 18 -->
+    <div class="day-card" id="day3">
+        <div class="day-header" onclick="toggleDay(this)">
+            <div>
+                <h2>Day 4</h2>
+                <span class="day-date">Wednesday, March 18 &mdash; Helicopter &amp; Canyon</span>
+            </div>
+            <span class="chevron">&#9662;</span>
+        </div>
+        <div class="day-body">
+            <div class="day-content">
+                <div class="item">
+                    <div class="item-icon icon-activity">🚁</div>
+                    <div class="item-text">
+                        <div class="item-label">Helicopter Tour</div>
+                        <div class="item-detail"><span class="item-time">7:15 &ndash; 9:30 AM</span> &mdash; 30 min drive to airport</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-sight">🏔️</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Waimea+Canyon+Kauai" target="_blank" rel="noopener">Waimea Canyon Drive</a></div>
+                        <div class="item-detail">Picnic lunch along the way</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-sight">💧</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Red+Dirt+Waterfall+Waimea+Canyon+Kauai" target="_blank" rel="noopener">Red Dirt Waterfall</a></div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-sight">👀</div>
+                    <div class="item-text">
+                        <div class="item-label">Canyon Lookouts</div>
+                        <div class="item-detail">
+                            <a class="place-link" href="https://www.google.com/maps/search/Waimea+Canyon+Lookout+Kauai" target="_blank" rel="noopener">Waimea Canyon Lookout</a><br>
+                            <a class="place-link" href="https://www.google.com/maps/search/Puu+Ka+Pele+Lookout+Kauai" target="_blank" rel="noopener">Pu'u Ka Pele Picnic Grounds</a> (1 hr drive)<br>
+                            <a class="place-link" href="https://www.google.com/maps/search/Polihale+State+Park+Kauai" target="_blank" rel="noopener">Polihale Beach Lookout</a><br>
+                            <a class="place-link" href="https://www.google.com/maps/search/Kalalau+Lookout+Kauai" target="_blank" rel="noopener">Kalalau Lookout</a><br>
+                            <a class="place-link" href="https://www.google.com/maps/search/Puu+O+Kila+Lookout+Kauai" target="_blank" rel="noopener">Pu'u O Kila Lookout</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-food">🍽️</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Beach+House+Restaurant+Koloa+Kauai" target="_blank" rel="noopener">Beach House Restaurant</a></div>
+                        <div class="item-detail"><span class="item-time">6:45 PM reservation</span> &mdash; option 1</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day 4: Thursday March 19 -->
+    <div class="day-card" id="day4">
+        <div class="day-header" onclick="toggleDay(this)">
+            <div>
+                <h2>Day 5</h2>
+                <span class="day-date">Thursday, March 19 &mdash; Trail, Surf &amp; Beach</span>
+            </div>
+            <span class="chevron">&#9662;</span>
+        </div>
+        <div class="day-body">
+            <div class="day-content">
+                <div class="item">
+                    <div class="item-icon icon-activity">🥾</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Mahaulepu+Heritage+Trail+Kauai" target="_blank" rel="noopener">Maha'ulepu Heritage Trail</a></div>
+                        <div class="item-detail">Morning &mdash; 4-5 miles round trip</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-activity">🏄</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Kauai+Surf+School+Poipu+Kauai" target="_blank" rel="noopener">Kauai Surf School</a> (kids)</div>
+                        <div class="item-detail">
+                            <span class="item-time">12:00 &ndash; 1:30 PM</span> &mdash; Kiahuna Plantation Resort, Poipu Road
+                        </div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-activity">🏊</div>
+                    <div class="item-text">
+                        <div class="item-label">Afternoon by the Pool</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-food">🍽️</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Beach+House+Restaurant+Koloa+Kauai" target="_blank" rel="noopener">Beach House Restaurant</a></div>
+                        <div class="item-detail"><span class="item-time">7:30 PM reservation</span> &mdash; option 2</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day 5: Friday March 20 -->
+    <div class="day-card" id="day5">
+        <div class="day-header" onclick="toggleDay(this)">
+            <div>
+                <h2>Day 6</h2>
+                <span class="day-date">Friday, March 20 &mdash; ATV &amp; Luau</span>
+            </div>
+            <span class="chevron">&#9662;</span>
+        </div>
+        <div class="day-body">
+            <div class="day-content">
+                <div class="item">
+                    <div class="item-icon icon-activity">🏎️</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Kipu+Ranch+Adventures+Kauai" target="_blank" rel="noopener">Kipu Ranch ATV Tour</a></div>
+                        <div class="item-detail"><span class="item-time">9:30 AM &ndash; 12:30 PM</span> &mdash; Older kids &amp; dads</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-activity">🌺</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Smiths+Tropical+Paradise+Luau+Kauai" target="_blank" rel="noopener">Smith Family Luau</a></div>
+                        <div class="item-detail"><span class="item-time">5:00 &ndash; 10:00 PM</span> &mdash; Smith's Tropical Paradise</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day 6: Saturday March 21 -->
+    <div class="day-card" id="day6">
+        <div class="day-header" onclick="toggleDay(this)">
+            <div>
+                <h2>Day 7</h2>
+                <span class="day-date">Saturday, March 21 &mdash; Plantation &amp; Hike</span>
+            </div>
+            <span class="chevron">&#9662;</span>
+        </div>
+        <div class="day-body">
+            <div class="day-content">
+                <div class="item">
+                    <div class="item-icon icon-activity">🚂</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Kilohana+Plantation+Kauai" target="_blank" rel="noopener">Kilohana Plantation</a></div>
+                        <div class="item-detail">22 min drive &mdash; <span class="item-time">11:00 AM train ride</span></div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-food">🍽️</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Plantation+House+Restaurant+Kilohana+Kauai" target="_blank" rel="noopener">Plantation House Restaurant</a></div>
+                        <div class="item-detail"><span class="item-time">12:00 PM reservation</span></div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-activity">🥾</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Kuilau+Ridge+Trail+Kauai" target="_blank" rel="noopener">Kailua Ridge Trail</a></div>
+                        <div class="item-detail">3.4 miles</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day 7: Sunday March 22 -->
+    <div class="day-card" id="day7">
+        <div class="day-header" onclick="toggleDay(this)">
+            <div>
+                <h2>Day 8</h2>
+                <span class="day-date">Sunday, March 22 &mdash; North Shore</span>
+            </div>
+            <span class="chevron">&#9662;</span>
+        </div>
+        <div class="day-body">
+            <div class="day-content">
+                <div class="item">
+                    <div class="item-icon icon-food">🍳</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Kountry+Kitchen+Kapaa+Kauai" target="_blank" rel="noopener">Kountry Kitchen</a></div>
+                        <div class="item-detail">Breakfast in Kapa'a</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-sight">🌊</div>
+                    <div class="item-text">
+                        <div class="item-label">North Shore Exploration</div>
+                        <div class="item-detail">
+                            Drive to <a class="place-link" href="https://www.google.com/maps/search/Princeville+Kauai" target="_blank" rel="noopener">Princeville</a><br>
+                            <a class="place-link" href="https://www.google.com/maps/search/Queens+Bath+Princeville+Kauai" target="_blank" rel="noopener">Queen's Bath</a> &bull;
+                            <a class="place-link" href="https://www.google.com/maps/search/Tunnels+Beach+Haena+Kauai" target="_blank" rel="noopener">Tunnels Beach</a> &bull;
+                            <a class="place-link" href="https://www.google.com/maps/search/Kee+Beach+Haena+Kauai" target="_blank" rel="noopener">Ke'e Beach</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-food">🍽️</div>
+                    <div class="item-text">
+                        <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/1+Hotel+Hanalei+Bay+Kauai" target="_blank" rel="noopener">One Hotel &mdash; Welina Terrace Lounge</a></div>
+                        <div class="item-detail">Lunch in Hanalei Bay</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day 8: Monday March 23 -->
+    <div class="day-card" id="day8">
+        <div class="day-header" onclick="toggleDay(this)">
+            <div>
+                <h2>Day 9</h2>
+                <span class="day-date">Monday, March 23 &mdash; Departure</span>
+            </div>
+            <span class="chevron">&#9662;</span>
+        </div>
+        <div class="day-body">
+            <div class="day-content">
+                <div class="item">
+                    <div class="item-icon icon-stay">🏨</div>
+                    <div class="item-text">
+                        <div class="item-label">Check Out</div>
+                        <div class="item-detail"><span class="item-time">By 11:00 AM</span> &mdash; inquire about late checkout</div>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="item-icon icon-travel">✈️</div>
+                    <div class="item-text">
+                        <div class="item-label">Flight Home</div>
+                        <div class="item-detail"><span class="item-time">9:00 PM</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day 9: Tuesday March 24 -->
+    <div class="day-card" id="day9">
+        <div class="day-header" onclick="toggleDay(this)">
+            <div>
+                <h2>Day 10</h2>
+                <span class="day-date">Tuesday, March 24 &mdash; Home</span>
+            </div>
+            <span class="chevron">&#9662;</span>
+        </div>
+        <div class="day-body">
+            <div class="day-content">
+                <div class="item">
+                    <div class="item-icon icon-travel">✈️</div>
+                    <div class="item-text">
+                        <div class="item-label">Arrive ATL &rarr; Drive to Jax</div>
+                        <div class="item-detail">Early morning arrival</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Other Restaurants -->
+    <div class="extras">
+        <h2>🍴 Other Restaurants to Try</h2>
+        <div class="restaurant-grid">
+            <div class="restaurant-chip">🍣 <a href="https://www.google.com/maps/search/Japanese+Grandmas+Cafe+Kauai" target="_blank" rel="noopener">Japanese Grandma's</a></div>
+            <div class="restaurant-chip">🐟 <a href="https://www.google.com/maps/search/Koloa+Fish+Market+Kauai" target="_blank" rel="noopener">Koloa Fish Market</a></div>
+            <div class="restaurant-chip">🥗 <a href="https://www.google.com/maps/search/JO2+Natural+Cuisine+Kauai" target="_blank" rel="noopener">JO2 Natural Cuisine</a></div>
+            <div class="restaurant-chip">🍔 <a href="https://www.google.com/maps/search/Brenneckes+Beach+Broiler+Poipu+Kauai" target="_blank" rel="noopener">Brennecke's Broiler</a></div>
+            <div class="restaurant-chip">🌴 <a href="https://www.google.com/maps/search/Dukes+Kauai+Lihue" target="_blank" rel="noopener">Duke's Kauai</a></div>
+        </div>
+    </div>
+
+</div>
+
+<footer>
+    <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🌴🤙🌺</div>
+    Aloha! Have an amazing trip.
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// Toggle day cards
+function toggleDay(header) {
+    const card = header.closest('.day-card');
+    card.classList.toggle('open');
+}
+
+// Map
+const map = L.map('map', {
+    scrollWheelZoom: false,
+    tap: true,
+}).setView([21.96, -159.50], 11);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 18,
+}).addTo(map);
+
+// Custom icons
+function makeIcon(color) {
+    return L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="
+            width: 26px; height: 26px; border-radius: 50%;
+            background: ${color}; border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        "></div>`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+        popupAnchor: [0, -16],
+    });
+}
+
+const iconLodge = makeIcon('#0077b6');
+const iconFood = makeIcon('#e07a5f');
+const iconActivity = makeIcon('#2d6a4f');
+const iconSight = makeIcon('#7b68ee');
+
+const markers = [
+    // Lodging
+    { lat: 21.8782, lng: -159.4496, name: "Koloa Landing Resort", icon: iconLodge,
+      link: "https://www.google.com/maps/search/Koloa+Landing+Resort+Poipu+Kauai" },
+
+    // Beaches & Sights
+    { lat: 21.8755, lng: -159.4534, name: "Poipu Beach", icon: iconSight,
+      link: "https://www.google.com/maps/search/Poipu+Beach+Park+Kauai" },
+    { lat: 21.8714, lng: -159.4407, name: "Shipwreck Beach", icon: iconSight,
+      link: "https://www.google.com/maps/search/Shipwreck+Beach+Kauai" },
+    { lat: 21.8680, lng: -159.4580, name: "Spouting Horn", icon: iconSight,
+      link: "https://www.google.com/maps/search/Spouting+Horn+Kauai" },
+    { lat: 22.0694, lng: -159.6555, name: "Waimea Canyon Lookout", icon: iconSight,
+      link: "https://www.google.com/maps/search/Waimea+Canyon+Lookout+Kauai" },
+    { lat: 22.1480, lng: -159.6240, name: "Kalalau Lookout", icon: iconSight,
+      link: "https://www.google.com/maps/search/Kalalau+Lookout+Kauai" },
+    { lat: 22.1510, lng: -159.6240, name: "Pu'u O Kila Lookout", icon: iconSight,
+      link: "https://www.google.com/maps/search/Puu+O+Kila+Lookout+Kauai" },
+    { lat: 22.2230, lng: -159.4810, name: "Queen's Bath", icon: iconSight,
+      link: "https://www.google.com/maps/search/Queens+Bath+Princeville+Kauai" },
+    { lat: 22.2220, lng: -159.5670, name: "Tunnels Beach", icon: iconSight,
+      link: "https://www.google.com/maps/search/Tunnels+Beach+Haena+Kauai" },
+    { lat: 22.2230, lng: -159.5860, name: "Ke'e Beach", icon: iconSight,
+      link: "https://www.google.com/maps/search/Kee+Beach+Haena+Kauai" },
+
+    // Food
+    { lat: 21.8793, lng: -159.4536, name: "Puka Dog", icon: iconFood,
+      link: "https://www.google.com/maps/search/Puka+Dog+Poipu+Kauai" },
+    { lat: 21.9067, lng: -159.4710, name: "Lappert's Ice Cream", icon: iconFood,
+      link: "https://www.google.com/maps/search/Lapperts+Ice+Cream+Koloa+Kauai" },
+    { lat: 21.8790, lng: -159.4528, name: "Keoki's Paradise", icon: iconFood,
+      link: "https://www.google.com/maps/search/Keokis+Paradise+Poipu+Kauai" },
+    { lat: 21.8721, lng: -159.4638, name: "Beach House Restaurant", icon: iconFood,
+      link: "https://www.google.com/maps/search/Beach+House+Restaurant+Koloa+Kauai" },
+    { lat: 21.9520, lng: -159.3880, name: "Plantation House Restaurant", icon: iconFood,
+      link: "https://www.google.com/maps/search/Plantation+House+Restaurant+Kilohana+Kauai" },
+    { lat: 21.9600, lng: -159.3490, name: "Kountry Kitchen", icon: iconFood,
+      link: "https://www.google.com/maps/search/Kountry+Kitchen+Kapaa+Kauai" },
+    { lat: 22.2100, lng: -159.4980, name: "One Hotel – Welina Terrace", icon: iconFood,
+      link: "https://www.google.com/maps/search/1+Hotel+Hanalei+Bay+Kauai" },
+    { lat: 21.9680, lng: -159.3480, name: "Duke's Kauai", icon: iconFood,
+      link: "https://www.google.com/maps/search/Dukes+Kauai+Lihue" },
+
+    // Activities
+    { lat: 21.8730, lng: -159.4200, name: "Maha'ulepu Heritage Trail", icon: iconActivity,
+      link: "https://www.google.com/maps/search/Mahaulepu+Heritage+Trail+Kauai" },
+    { lat: 21.8785, lng: -159.4510, name: "Kauai Surf School", icon: iconActivity,
+      link: "https://www.google.com/maps/search/Kauai+Surf+School+Poipu+Kauai" },
+    { lat: 21.9320, lng: -159.4050, name: "Kipu Ranch ATV", icon: iconActivity,
+      link: "https://www.google.com/maps/search/Kipu+Ranch+Adventures+Kauai" },
+    { lat: 21.9700, lng: -159.3560, name: "Smith Family Luau", icon: iconActivity,
+      link: "https://www.google.com/maps/search/Smiths+Tropical+Paradise+Luau+Kauai" },
+    { lat: 21.9520, lng: -159.3890, name: "Kilohana Plantation", icon: iconActivity,
+      link: "https://www.google.com/maps/search/Kilohana+Plantation+Kauai" },
+    { lat: 22.0700, lng: -159.3800, name: "Kailua Ridge Trail", icon: iconActivity,
+      link: "https://www.google.com/maps/search/Kuilau+Ridge+Trail+Kauai" },
+];
+
+markers.forEach(m => {
+    L.marker([m.lat, m.lng], { icon: m.icon })
+        .addTo(map)
+        .bindPopup(`<b>${m.name}</b><br><a href="${m.link}" target="_blank" rel="noopener" style="color:#0077b6;">Open in Google Maps</a>`);
+});
+
+// Smooth scroll for nav
+document.querySelectorAll('.day-nav a').forEach(a => {
+    a.addEventListener('click', e => {
+        e.preventDefault();
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Open the card
+            if (!target.classList.contains('open')) {
+                target.classList.add('open');
+            }
+        }
+    });
+});
+</script>
+
+</body>
+</html>

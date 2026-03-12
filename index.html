@@ -295,7 +295,13 @@
             flex-shrink: 0;
             margin-left: auto;
             margin-right: 0.75rem;
+            cursor: pointer;
+            padding: 0.2rem 0.4rem;
+            border-radius: 10px;
+            transition: background 0.2s;
         }
+        .weather-badge:hover { background: var(--sand); }
+        .weather-badge:active { background: #ede2cf; }
         .weather-icon {
             font-size: 1.4rem;
             line-height: 1;
@@ -328,6 +334,143 @@
             font-size: 0.65rem;
             color: var(--text-light);
             opacity: 0.4;
+        }
+
+        /* Weather modal */
+        .weather-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+            -webkit-backdrop-filter: blur(2px);
+            backdrop-filter: blur(2px);
+        }
+        .weather-modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .weather-modal {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            max-height: 85vh;
+            background: var(--white);
+            border-radius: 20px 20px 0 0;
+            z-index: 1001;
+            transform: translateY(100%);
+            transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .weather-modal-overlay.active .weather-modal {
+            transform: translateY(0);
+        }
+        .modal-handle {
+            width: 36px;
+            height: 4px;
+            background: #d0d0d0;
+            border-radius: 2px;
+            margin: 10px auto 0;
+            flex-shrink: 0;
+        }
+        .modal-header {
+            padding: 0.75rem 1.25rem 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .modal-header h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.1rem;
+            color: var(--ocean-dark);
+        }
+        .modal-header .modal-location {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.75rem;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: var(--sand);
+            border-radius: 50%;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-light);
+            flex-shrink: 0;
+        }
+        .modal-close:hover { background: #e8dcc6; }
+        .modal-chart-wrap {
+            padding: 0.5rem 1rem 0;
+            flex-shrink: 0;
+        }
+        .modal-chart-wrap canvas {
+            max-height: 200px;
+        }
+        .modal-hourly-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem 1.25rem 1.5rem;
+            -webkit-overflow-scrolling: touch;
+        }
+        .hourly-row {
+            display: flex;
+            align-items: center;
+            padding: 0.45rem 0;
+            border-bottom: 1px solid #f0ebe3;
+            gap: 0.6rem;
+            font-size: 0.8rem;
+        }
+        .hourly-row:last-child { border-bottom: none; }
+        .hourly-time {
+            width: 52px;
+            font-weight: 600;
+            color: var(--text);
+            flex-shrink: 0;
+        }
+        .hourly-icon { font-size: 1.1rem; flex-shrink: 0; }
+        .hourly-temp {
+            font-weight: 600;
+            width: 38px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .hourly-precip {
+            color: var(--ocean);
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .hourly-desc {
+            color: var(--text-light);
+            font-size: 0.75rem;
+            flex: 1;
+            min-width: 0;
+        }
+        body.modal-open { overflow: hidden; }
+
+        @media (min-width: 640px) {
+            .weather-modal {
+                max-width: 500px;
+                left: 50%;
+                transform: translate(-50%, 100%);
+                margin-left: 0;
+            }
+            .weather-modal-overlay.active .weather-modal {
+                transform: translate(-50%, 0);
+            }
         }
 
         /* Footer */
@@ -791,7 +934,26 @@
     Aloha! Have an amazing trip.
 </footer>
 
+<!-- Weather detail modal -->
+<div class="weather-modal-overlay" id="weatherOverlay">
+    <div class="weather-modal" id="weatherModal">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <div>
+                <h3 id="modalTitle">Day 3 &mdash; Hourly Forecast</h3>
+                <span class="modal-location" id="modalLocation">Poipu, Kauai</span>
+            </div>
+            <button class="modal-close" id="modalClose">&times;</button>
+        </div>
+        <div class="modal-chart-wrap">
+            <canvas id="hourlyChart"></canvas>
+        </div>
+        <div class="modal-hourly-list" id="hourlyList"></div>
+    </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
 // Toggle day cards
 function toggleDay(header) {
@@ -922,11 +1084,26 @@ const WMO_ICONS = {
     85: '🌨️', 86: '🌨️',
     95: '⛈️', 96: '⛈️', 99: '⛈️',
 };
+const WMO_LABELS = {
+    0: 'Clear sky', 1: 'Mostly clear', 2: 'Partly cloudy', 3: 'Overcast',
+    45: 'Foggy', 48: 'Rime fog',
+    51: 'Light drizzle', 53: 'Drizzle', 55: 'Heavy drizzle',
+    56: 'Freezing drizzle', 57: 'Heavy freezing drizzle',
+    61: 'Light rain', 63: 'Rain', 65: 'Heavy rain',
+    66: 'Freezing rain', 67: 'Heavy freezing rain',
+    71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 77: 'Snow grains',
+    80: 'Light showers', 81: 'Showers', 82: 'Heavy showers',
+    85: 'Light snow showers', 86: 'Heavy snow showers',
+    95: 'Thunderstorm', 96: 'Thunderstorm w/ hail', 99: 'Severe thunderstorm',
+};
 
 const LOCATIONS = {
-    kauai: { lat: 21.88, lng: -159.45, label: 'Poipu' },
-    atl:   { lat: 33.64, lng: -84.43,  label: 'Atlanta' },
+    kauai: { lat: 21.88, lng: -159.45, label: 'Poipu, Kauai' },
+    atl:   { lat: 33.64, lng: -84.43,  label: 'Atlanta, GA' },
 };
+
+// Store hourly data globally for modal access
+const hourlyCache = {};
 
 function renderWeather(badge, icon, hi, lo, precip) {
     badge.innerHTML = `
@@ -943,16 +1120,15 @@ async function fetchWeather(loc, startDate, endDate) {
     const { lat, lng } = LOCATIONS[loc];
     const today = new Date().toISOString().slice(0, 10);
 
-    // Split into past dates (archive API) and future dates (forecast API)
     const pastEnd = startDate < today ? (endDate < today ? endDate : today) : null;
     const futureStart = endDate >= today ? (startDate >= today ? startDate : today) : null;
 
     const results = {};
 
-    // Fetch past weather if needed
+    // Fetch past weather (archive)
     if (pastEnd && startDate <= pastEnd) {
         try {
-            const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&temperature_unit=fahrenheit&timezone=auto&start_date=${startDate}&end_date=${pastEnd}`;
+            const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum&hourly=temperature_2m,precipitation,weather_code&temperature_unit=fahrenheit&timezone=auto&start_date=${startDate}&end_date=${pastEnd}`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.daily) {
@@ -961,17 +1137,31 @@ async function fetchWeather(loc, startDate, endDate) {
                         code: data.daily.weather_code[i],
                         hi: data.daily.temperature_2m_max[i],
                         lo: data.daily.temperature_2m_min[i],
-                        precip: null, // archive doesn't have probability
+                        precip: null,
                     };
                 });
             }
-        } catch (e) { /* ignore archive errors */ }
+            if (data.hourly) {
+                data.hourly.time.forEach((t, i) => {
+                    const d = t.slice(0, 10);
+                    const key = `${loc}:${d}`;
+                    if (!hourlyCache[key]) hourlyCache[key] = [];
+                    hourlyCache[key].push({
+                        hour: parseInt(t.slice(11, 13)),
+                        temp: data.hourly.temperature_2m[i],
+                        precip: data.hourly.precipitation[i],
+                        precipIsAmount: true,
+                        code: data.hourly.weather_code[i],
+                    });
+                });
+            }
+        } catch (e) { /* ignore */ }
     }
 
-    // Fetch forecast if needed
+    // Fetch forecast
     if (futureStart && futureStart <= endDate) {
         try {
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=auto&start_date=${futureStart}&end_date=${endDate}`;
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&hourly=temperature_2m,precipitation_probability,weather_code&temperature_unit=fahrenheit&timezone=auto&start_date=${futureStart}&end_date=${endDate}`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.daily) {
@@ -984,14 +1174,174 @@ async function fetchWeather(loc, startDate, endDate) {
                     };
                 });
             }
-        } catch (e) { /* ignore forecast errors */ }
+            if (data.hourly) {
+                data.hourly.time.forEach((t, i) => {
+                    const d = t.slice(0, 10);
+                    const key = `${loc}:${d}`;
+                    if (!hourlyCache[key]) hourlyCache[key] = [];
+                    hourlyCache[key].push({
+                        hour: parseInt(t.slice(11, 13)),
+                        temp: data.hourly.temperature_2m[i],
+                        precip: data.hourly.precipitation_probability[i],
+                        precipIsAmount: false,
+                        code: data.hourly.weather_code[i],
+                    });
+                });
+            }
+        } catch (e) { /* ignore */ }
     }
 
     return results;
 }
 
+// --- Modal ---
+const overlay = document.getElementById('weatherOverlay');
+const modalTitle = document.getElementById('modalTitle');
+const modalLocation = document.getElementById('modalLocation');
+const modalClose = document.getElementById('modalClose');
+const hourlyList = document.getElementById('hourlyList');
+let hourlyChart = null;
+
+function openModal(dayLabel, date, loc) {
+    const key = `${loc}:${date}`;
+    const hours = hourlyCache[key];
+    if (!hours || hours.length === 0) return;
+
+    const locInfo = LOCATIONS[loc] || LOCATIONS.kauai;
+    const dateObj = new Date(date + 'T12:00:00');
+    const dayStr = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+    modalTitle.textContent = `${dayLabel} \u2014 ${dayStr}`;
+    modalLocation.textContent = locInfo.label;
+
+    // Filter to waking hours (6 AM - 10 PM)
+    const waking = hours.filter(h => h.hour >= 6 && h.hour <= 22);
+    const isAmount = waking.length > 0 && waking[0].precipIsAmount;
+
+    // Build chart
+    const ctx = document.getElementById('hourlyChart').getContext('2d');
+    if (hourlyChart) hourlyChart.destroy();
+
+    const labels = waking.map(h => {
+        const hr = h.hour % 12 || 12;
+        const ampm = h.hour < 12 ? 'a' : 'p';
+        return `${hr}${ampm}`;
+    });
+
+    hourlyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                {
+                    type: 'line',
+                    label: 'Temp (°F)',
+                    data: waking.map(h => h.temp != null ? Math.round(h.temp) : null),
+                    borderColor: '#0077b6',
+                    backgroundColor: 'rgba(0, 119, 182, 0.1)',
+                    borderWidth: 2.5,
+                    pointRadius: 0,
+                    pointHitRadius: 8,
+                    tension: 0.4,
+                    fill: true,
+                    yAxisID: 'y',
+                    order: 1,
+                },
+                {
+                    type: 'bar',
+                    label: isAmount ? 'Precip (in)' : 'Rain %',
+                    data: waking.map(h => h.precip != null ? (isAmount ? h.precip : h.precip) : 0),
+                    backgroundColor: 'rgba(96, 165, 250, 0.4)',
+                    borderRadius: 3,
+                    yAxisID: 'y1',
+                    order: 2,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(255,255,255,0.95)',
+                    titleColor: '#2b2b2b',
+                    bodyColor: '#555',
+                    borderColor: '#e0e0e0',
+                    borderWidth: 1,
+                    padding: 10,
+                    callbacks: {
+                        label: function(ctx) {
+                            if (ctx.datasetIndex === 0) return ` ${ctx.parsed.y}°F`;
+                            return isAmount ? ` ${ctx.parsed.y.toFixed(2)} in` : ` ${ctx.parsed.y}% rain`;
+                        }
+                    }
+                },
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 10 }, color: '#999', maxRotation: 0 },
+                },
+                y: {
+                    position: 'left',
+                    grid: { color: 'rgba(0,0,0,0.04)' },
+                    ticks: {
+                        font: { size: 10 },
+                        color: '#0077b6',
+                        callback: v => v + '°',
+                    },
+                },
+                y1: {
+                    position: 'right',
+                    grid: { display: false },
+                    min: 0,
+                    max: isAmount ? undefined : 100,
+                    ticks: {
+                        font: { size: 10 },
+                        color: '#60a5fa',
+                        callback: v => isAmount ? v + '"' : v + '%',
+                    },
+                },
+            },
+        },
+    });
+
+    // Build hourly rows
+    hourlyList.innerHTML = waking.map(h => {
+        const hr = h.hour % 12 || 12;
+        const ampm = h.hour < 12 ? 'AM' : 'PM';
+        const icon = WMO_ICONS[h.code] || '🌡️';
+        const label = WMO_LABELS[h.code] || '';
+        const precipStr = h.precip != null
+            ? (isAmount ? (h.precip > 0 ? `${h.precip.toFixed(2)}"` : '') : (h.precip > 0 ? `💧${h.precip}%` : ''))
+            : '';
+        return `<div class="hourly-row">
+            <span class="hourly-time">${hr}:00 ${ampm}</span>
+            <span class="hourly-icon">${icon}</span>
+            <span class="hourly-temp">${h.temp != null ? Math.round(h.temp) + '°' : '—'}</span>
+            <span class="hourly-desc">${label}</span>
+            <span class="hourly-precip">${precipStr}</span>
+        </div>`;
+    }).join('');
+
+    // Show modal
+    overlay.classList.add('active');
+    document.body.classList.add('modal-open');
+}
+
+function closeModal() {
+    overlay.classList.remove('active');
+    document.body.classList.remove('modal-open');
+}
+modalClose.addEventListener('click', closeModal);
+overlay.addEventListener('click', e => {
+    if (e.target === overlay) closeModal();
+});
+
+// --- Load weather + wire up badges ---
 async function loadAllWeather() {
-    // Group cards by location
     const groups = {};
     document.querySelectorAll('.day-card[data-date]').forEach(card => {
         const loc = card.dataset.location || 'kauai';
@@ -1015,6 +1365,13 @@ async function loadAllWeather() {
                 const w = weather[date];
                 const icon = WMO_ICONS[w.code] || '🌡️';
                 renderWeather(badge, icon, w.hi, w.lo, w.precip || 0);
+
+                // Click handler for hourly detail
+                badge.addEventListener('click', e => {
+                    e.stopPropagation();
+                    const dayLabel = card.querySelector('h2').textContent;
+                    openModal(dayLabel, date, loc);
+                });
             } else {
                 badge.innerHTML = '<span class="weather-error">No forecast yet</span>';
             }

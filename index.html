@@ -780,6 +780,56 @@
             flex-shrink: 0;
         }
 
+        /* Time zone clocks */
+        .tz-bar {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .tz-clock {
+            flex: 1;
+            text-align: center;
+            background: var(--white);
+            border-radius: 12px;
+            padding: 0.5rem 0.4rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        }
+        .tz-city {
+            font-size: 0.6rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-light);
+            margin-bottom: 0.15rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .tz-time {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--ocean-dark);
+            font-variant-numeric: tabular-nums;
+        }
+        .tz-ampm {
+            font-size: 0.65rem;
+            font-weight: 600;
+            margin-left: 0.1rem;
+        }
+        .tz-date {
+            font-size: 0.6rem;
+            color: var(--text-light);
+            margin-top: 0.1rem;
+        }
+        .tz-label {
+            font-size: 0.55rem;
+            color: var(--sunset);
+            font-weight: 600;
+        }
+
         /* Footer */
         footer {
             text-align: center;
@@ -828,6 +878,28 @@
     <a href="#day9">Tue 3/24</a>
     <a href="#phraseGuide">Phrases</a>
 </nav>
+
+<!-- Time Zone Clocks -->
+<div class="tz-bar" id="tzBar">
+    <div class="tz-clock">
+        <div class="tz-city">Ponte Vedra</div>
+        <div class="tz-time" id="tzPVB"></div>
+        <div class="tz-date" id="tzPVBdate"></div>
+        <div class="tz-label">EDT</div>
+    </div>
+    <div class="tz-clock">
+        <div class="tz-city">Iowa City</div>
+        <div class="tz-time" id="tzIC"></div>
+        <div class="tz-date" id="tzICdate"></div>
+        <div class="tz-label">CDT</div>
+    </div>
+    <div class="tz-clock">
+        <div class="tz-city">Kauai</div>
+        <div class="tz-time" id="tzHI"></div>
+        <div class="tz-date" id="tzHIdate"></div>
+        <div class="tz-label">HST</div>
+    </div>
+</div>
 
 <!-- Itinerary -->
 <div class="container">
@@ -1391,6 +1463,38 @@ function toggleDay(header) {
     const card = header.closest('.day-card');
     card.classList.toggle('open');
 }
+
+// ============================================================
+// TIME ZONE CLOCKS
+// ============================================================
+function updateClocks() {
+    const now = new Date();
+    const fmt = (tz) => {
+        const opts = { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true };
+        const parts = new Intl.DateTimeFormat('en-US', opts).formatToParts(now);
+        const h = parts.find(p => p.type === 'hour').value;
+        const m = parts.find(p => p.type === 'minute').value;
+        const ap = parts.find(p => p.type === 'dayPeriod').value;
+        return { time: `${h}:${m}`, ampm: ap };
+    };
+    const dateFmt = (tz) => {
+        return new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' }).format(now);
+    };
+
+    const pvb = fmt('America/New_York');
+    const ic = fmt('America/Chicago');
+    const hi = fmt('Pacific/Honolulu');
+
+    document.getElementById('tzPVB').innerHTML = `${pvb.time}<span class="tz-ampm">${pvb.ampm}</span>`;
+    document.getElementById('tzIC').innerHTML = `${ic.time}<span class="tz-ampm">${ic.ampm}</span>`;
+    document.getElementById('tzHI').innerHTML = `${hi.time}<span class="tz-ampm">${hi.ampm}</span>`;
+
+    document.getElementById('tzPVBdate').textContent = dateFmt('America/New_York');
+    document.getElementById('tzICdate').textContent = dateFmt('America/Chicago');
+    document.getElementById('tzHIdate').textContent = dateFmt('Pacific/Honolulu');
+}
+updateClocks();
+setInterval(updateClocks, 1000);
 
 // Map
 const map = L.map('map', {

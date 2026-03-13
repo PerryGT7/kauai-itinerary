@@ -630,6 +630,156 @@
             color: var(--text-light);
         }
 
+        /* Drive time chips */
+        .drive-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            padding: 0.15rem 0.5rem;
+            background: #e3f2fd;
+            color: var(--ocean-dark);
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            white-space: nowrap;
+            margin-top: 0.15rem;
+        }
+
+        /* Notification bell */
+        .notif-toggle {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.4);
+            background: rgba(255,255,255,0.15);
+            color: var(--white);
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            z-index: 10;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .notif-toggle:hover { background: rgba(255,255,255,0.25); }
+        .notif-toggle.active {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.7);
+        }
+        .notif-dot {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--sunset);
+            display: none;
+        }
+        .notif-toggle.active .notif-dot { display: block; }
+
+        /* Toast notification */
+        .notif-toast {
+            position: fixed;
+            top: -120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--white);
+            color: var(--text);
+            padding: 0.75rem 1.25rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            font-size: 0.85rem;
+            z-index: 3000;
+            transition: top 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+            max-width: 90vw;
+            text-align: center;
+            line-height: 1.4;
+        }
+        .notif-toast.show { top: 1rem; }
+        .toast-title {
+            font-weight: 700;
+            color: var(--ocean-dark);
+            margin-bottom: 0.2rem;
+        }
+        .toast-dismiss {
+            display: inline-block;
+            margin-top: 0.4rem;
+            font-size: 0.75rem;
+            color: var(--text-light);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        /* Playlist section */
+        .playlist-section {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .playlist-section h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            color: var(--ocean-dark);
+            margin-bottom: 0.25rem;
+        }
+        .playlist-section p {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-bottom: 0.75rem;
+        }
+        .playlist-embed {
+            display: flex;
+            justify-content: center;
+        }
+        .playlist-embed iframe {
+            width: 100%;
+            max-width: 500px;
+            height: 352px;
+            border: 1px solid #e0dbd2;
+            border-radius: 12px;
+        }
+
+        /* Hawaiian phrase guide */
+        .phrase-list { display: grid; gap: 0; }
+        .phrase-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid #f0ebe3;
+            align-items: center;
+        }
+        .phrase-item:last-child { border-bottom: none; }
+        .phrase-word {
+            font-weight: 700;
+            color: var(--ocean-dark);
+            font-size: 0.9rem;
+            min-width: 85px;
+            flex-shrink: 0;
+        }
+        .phrase-meaning {
+            font-size: 0.85rem;
+            color: var(--text);
+            flex: 1;
+        }
+        .phrase-cat {
+            font-size: 0.6rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--palm-light);
+            padding: 0.1rem 0.4rem;
+            background: #e8f5e9;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+
         /* Footer */
         footer {
             text-align: center;
@@ -644,6 +794,8 @@
             .hero h1 { font-size: 2.8rem; }
             #map { height: 450px; }
             .restaurant-grid { grid-template-columns: 1fr 1fr 1fr; }
+            .phrase-word { min-width: 110px; }
+            .playlist-section, .phrase-guide { max-width: 600px; margin-left: auto; margin-right: auto; }
         }
     </style>
 </head>
@@ -651,6 +803,7 @@
 
 <!-- Hero -->
 <header class="hero">
+    <button class="notif-toggle" id="notifToggle" title="Toggle trip reminders">🔔<span class="notif-dot"></span></button>
     <div style="font-size: 2rem; margin-bottom: 0.5rem;">🌺</div>
     <h1>Kauai</h1>
     <p class="subtitle">The Garden Isle</p>
@@ -673,6 +826,7 @@
     <a href="#day7">Sun 3/22</a>
     <a href="#day8">Mon 3/23</a>
     <a href="#day9">Tue 3/24</a>
+    <a href="#phraseGuide">Phrases</a>
 </nav>
 
 <!-- Itinerary -->
@@ -694,6 +848,7 @@
                     <div class="item-icon icon-travel">🚗</div>
                     <div class="item-text">
                         <div class="item-label">Drive to Atlanta</div>
+                        <div class="item-detail"><span class="drive-chip">🚗 ~5.5 hr drive to ATL</span></div>
                     </div>
                 </div>
                 <div class="item">
@@ -737,7 +892,7 @@
                     <div class="item-icon icon-stay">🏨</div>
                     <div class="item-text">
                         <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Koloa+Landing+Resort+Poipu+Kauai" target="_blank" rel="noopener">Koloa Landing Resort</a></div>
-                        <div class="item-detail">25 min drive from LIH <span class="conf-num">70441935</span></div>
+                        <div class="item-detail"><span class="drive-chip">🚗 ~25 min from airport</span> <span class="conf-num">70441935</span></div>
                     </div>
                 </div>
             </div>
@@ -814,7 +969,7 @@
                     <div class="item-icon icon-activity">🚁</div>
                     <div class="item-text">
                         <div class="item-label">Helicopter Tour</div>
-                        <div class="item-detail"><span class="item-time">7:15 &ndash; 9:30 AM</span> &mdash; 30 min drive to airport</div>
+                        <div class="item-detail"><span class="item-time">7:15 &ndash; 9:30 AM</span> <span class="drive-chip">🚗 ~30 min to heliport</span></div>
                     </div>
                 </div>
                 <div class="item">
@@ -835,8 +990,9 @@
                     <div class="item-text">
                         <div class="item-label">Canyon Lookouts</div>
                         <div class="item-detail">
+                            <span class="drive-chip">🚗 ~1 hr from Poipu</span><br>
                             <a class="place-link" href="https://www.google.com/maps/search/Waimea+Canyon+Lookout+Kauai" target="_blank" rel="noopener">Waimea Canyon Lookout</a><br>
-                            <a class="place-link" href="https://www.google.com/maps/search/Puu+Ka+Pele+Lookout+Kauai" target="_blank" rel="noopener">Pu'u Ka Pele Picnic Grounds</a> (1 hr drive)<br>
+                            <a class="place-link" href="https://www.google.com/maps/search/Puu+Ka+Pele+Lookout+Kauai" target="_blank" rel="noopener">Pu'u Ka Pele Picnic Grounds</a><br>
                             <a class="place-link" href="https://www.google.com/maps/search/Polihale+State+Park+Kauai" target="_blank" rel="noopener">Polihale Beach Lookout</a><br>
                             <a class="place-link" href="https://www.google.com/maps/search/Kalalau+Lookout+Kauai" target="_blank" rel="noopener">Kalalau Lookout</a><br>
                             <a class="place-link" href="https://www.google.com/maps/search/Puu+O+Kila+Lookout+Kauai" target="_blank" rel="noopener">Pu'u O Kila Lookout</a>
@@ -915,14 +1071,14 @@
                     <div class="item-icon icon-activity">🏎️</div>
                     <div class="item-text">
                         <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Kipu+Ranch+Adventures+Kauai" target="_blank" rel="noopener">Kipu Ranch ATV Tour</a></div>
-                        <div class="item-detail"><span class="item-time">9:30 AM &ndash; 12:30 PM</span> &mdash; Older kids &amp; dads</div>
+                        <div class="item-detail"><span class="item-time">9:30 AM &ndash; 12:30 PM</span> &mdash; Older kids &amp; dads <span class="drive-chip">🚗 ~15 min</span></div>
                     </div>
                 </div>
                 <div class="item">
                     <div class="item-icon icon-activity">🌺</div>
                     <div class="item-text">
                         <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Smiths+Tropical+Paradise+Luau+Kauai" target="_blank" rel="noopener">Smith Family Luau</a></div>
-                        <div class="item-detail"><span class="item-time">5:00 &ndash; 10:00 PM</span> &mdash; Smith's Tropical Paradise</div>
+                        <div class="item-detail"><span class="item-time">5:00 &ndash; 10:00 PM</span> &mdash; Smith's Tropical Paradise <span class="drive-chip">🚗 ~30 min to Wailua</span></div>
                     </div>
                 </div>
             </div>
@@ -945,7 +1101,7 @@
                     <div class="item-icon icon-activity">🚂</div>
                     <div class="item-text">
                         <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Kilohana+Plantation+Kauai" target="_blank" rel="noopener">Kilohana Plantation</a></div>
-                        <div class="item-detail">22 min drive &mdash; <span class="item-time">11:00 AM train ride</span></div>
+                        <div class="item-detail"><span class="drive-chip">🚗 ~22 min drive</span> <span class="item-time">11:00 AM train ride</span></div>
                     </div>
                 </div>
                 <div class="item">
@@ -982,7 +1138,7 @@
                     <div class="item-icon icon-food">🍳</div>
                     <div class="item-text">
                         <div class="item-label"><a class="place-link" href="https://www.google.com/maps/search/Kountry+Kitchen+Kapaa+Kauai" target="_blank" rel="noopener">Kountry Kitchen</a></div>
-                        <div class="item-detail">Breakfast in Kapa'a</div>
+                        <div class="item-detail">Breakfast in Kapa'a <span class="drive-chip">🚗 ~30 min from Poipu</span></div>
                     </div>
                 </div>
                 <div class="item">
@@ -990,6 +1146,7 @@
                     <div class="item-text">
                         <div class="item-label">North Shore Exploration</div>
                         <div class="item-detail">
+                            <span class="drive-chip">🚗 ~1 hr to North Shore</span><br>
                             Drive to <a class="place-link" href="https://www.google.com/maps/search/Princeville+Kauai" target="_blank" rel="noopener">Princeville</a><br>
                             <a class="place-link" href="https://www.google.com/maps/search/Queens+Bath+Princeville+Kauai" target="_blank" rel="noopener">Queen's Bath</a> &bull;
                             <a class="place-link" href="https://www.google.com/maps/search/Tunnels+Beach+Haena+Kauai" target="_blank" rel="noopener">Tunnels Beach</a> &bull;
@@ -1085,6 +1242,105 @@
         </div>
     </div>
 
+    <!-- Music Playlist -->
+    <div class="playlist-section">
+        <h2>🎵 Island Vibes Playlist</h2>
+        <p>Set the mood with some Hawaiian tunes</p>
+        <div class="playlist-embed">
+            <iframe id="AmazonMusicEmbed"
+                src="https://music.amazon.com/embed/B00QAZG1ES/"
+                sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+                allow="autoplay *"></iframe>
+        </div>
+    </div>
+
+    <!-- Hawaiian Phrase Guide -->
+    <div class="day-card phrase-guide" id="phraseGuide">
+        <div class="day-header" onclick="toggleDay(this)">
+            <div>
+                <h2>🗣️ Hawaiian Phrase Guide</h2>
+                <span class="day-date">Common words &amp; phrases to know</span>
+            </div>
+            <span class="chevron">&#9662;</span>
+        </div>
+        <div class="day-body">
+            <div class="day-content">
+                <div class="phrase-list">
+                    <div class="phrase-item">
+                        <span class="phrase-word">Aloha</span>
+                        <span class="phrase-meaning">Hello / Goodbye / Love</span>
+                        <span class="phrase-cat">Greeting</span>
+                    </div>
+                    <div class="phrase-item">
+                        <span class="phrase-word">Mahalo</span>
+                        <span class="phrase-meaning">Thank you</span>
+                        <span class="phrase-cat">Greeting</span>
+                    </div>
+                    <div class="phrase-item">
+                        <span class="phrase-word">E komo mai</span>
+                        <span class="phrase-meaning">Welcome</span>
+                        <span class="phrase-cat">Greeting</span>
+                    </div>
+                    <div class="phrase-item">
+                        <span class="phrase-word">A hui hou</span>
+                        <span class="phrase-meaning">Until we meet again</span>
+                        <span class="phrase-cat">Greeting</span>
+                    </div>
+                    <div class="phrase-item">
+                        <span class="phrase-word">'Ohana</span>
+                        <span class="phrase-meaning">Family</span>
+                        <span class="phrase-cat">People</span>
+                    </div>
+                    <div class="phrase-item">
+                        <span class="phrase-word">Keiki</span>
+                        <span class="phrase-meaning">Child / Children</span>
+                        <span class="phrase-cat">People</span>
+                    </div>
+                    <div class="phrase-item">
+                        <span class="phrase-word">Mauka</span>
+                        <span class="phrase-meaning">Toward the mountain (for directions)</span>
+                        <span class="phrase-cat">Direction</span>
+                    </div>
+                    <div class="phrase-item">
+                        <span class="phrase-word">Makai</span>
+                        <span class="phrase-meaning">Toward the ocean (for directions)</span>
+                        <span class="phrase-cat">Direction</span>
+                    </div>
+                    <div class="phrase-item">
+                        <span class="phrase-word">Shaka 🤙</span>
+                        <span class="phrase-meaning">Hang loose &mdash; a friendly hand gesture</span>
+                        <span class="phrase-cat">Culture</span>
+                    </div>
+                    <div class="phrase-item">
+                        <span class="phrase-word">Hana hou</span>
+                        <span class="phrase-meaning">Encore / One more time</span>
+                        <span class="phrase-cat">Culture</span>
+                    </div>
+                    <div class="phrase-item">
+                        <span class="phrase-word">Pau hana</span>
+                        <span class="phrase-meaning">After work / Happy hour</span>
+                        <span class="phrase-cat">Culture</span>
+                    </div>
+                    <div class="phrase-item">
+                        <span class="phrase-word">Wiki wiki</span>
+                        <span class="phrase-meaning">Quick / Fast</span>
+                        <span class="phrase-cat">Culture</span>
+                    </div>
+                    <div class="phrase-item">
+                        <span class="phrase-word">Poke</span>
+                        <span class="phrase-meaning">Diced raw fish &mdash; a popular local dish</span>
+                        <span class="phrase-cat">Food</span>
+                    </div>
+                    <div class="phrase-item">
+                        <span class="phrase-word">Lanai</span>
+                        <span class="phrase-meaning">Porch / Patio / Balcony</span>
+                        <span class="phrase-cat">Place</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <footer>
@@ -1118,6 +1374,13 @@
         </div>
         <div class="modal-hourly-list" id="hourlyList"></div>
     </div>
+</div>
+
+<!-- Notification toast -->
+<div class="notif-toast" id="notifToast">
+    <div class="toast-title" id="toastTitle"></div>
+    <div id="toastBody"></div>
+    <span class="toast-dismiss" onclick="dismissToast()">Dismiss</span>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1750,6 +2013,99 @@ document.querySelectorAll('.day-card[data-date]').forEach(card => {
     };
     document.head.appendChild(script);
 })();
+
+// ============================================================
+// DAILY NOTIFICATION REMINDERS
+// ============================================================
+const NOTIF_STORAGE_KEY = 'kauai-notif-enabled';
+const NOTIF_LAST_KEY = 'kauai-notif-last';
+
+const DAY_HIGHLIGHTS = {
+    '2026-03-15': 'Drive to Atlanta, stay at SpringHill Suites near the airport',
+    '2026-03-16': 'Fly ATL to Lihue! Pick up rental car, check into Koloa Landing Resort',
+    '2026-03-17': 'Poipu Beach day! Sea turtles, Spouting Horn, Puka Dog, dinner at Keoki\'s Paradise',
+    '2026-03-18': 'Helicopter tour at 7:15 AM, then Waimea Canyon drive & lookouts',
+    '2026-03-19': 'Maha\'ulepu Heritage Trail, kids surf lesson at noon, Beach House dinner',
+    '2026-03-20': 'ATV tour at Kipu Ranch (9:30 AM), Smith Family Luau (5 PM)',
+    '2026-03-21': 'Kilohana Plantation train at 11 AM, Kailua Ridge Trail hike',
+    '2026-03-22': 'North Shore day! Kountry Kitchen breakfast, Princeville, Tunnels Beach, Hanalei Bay',
+    '2026-03-23': 'Last full day — check out by 11 AM, flight at 9 PM',
+    '2026-03-24': 'Arrive home — early morning arrival, drive to Jax',
+};
+
+const notifToggle = document.getElementById('notifToggle');
+let notifEnabled = localStorage.getItem(NOTIF_STORAGE_KEY) === 'true';
+
+function updateNotifButton() {
+    notifToggle.classList.toggle('active', notifEnabled);
+}
+updateNotifButton();
+
+function showToast(title, body) {
+    const toast = document.getElementById('notifToast');
+    document.getElementById('toastTitle').textContent = title;
+    document.getElementById('toastBody').textContent = body;
+    toast.classList.add('show');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => toast.classList.remove('show'), 6000);
+}
+
+window.dismissToast = function() {
+    document.getElementById('notifToast').classList.remove('show');
+};
+
+notifToggle.addEventListener('click', async () => {
+    if (!notifEnabled) {
+        if ('Notification' in window) {
+            const perm = await Notification.requestPermission();
+            if (perm === 'granted') {
+                notifEnabled = true;
+                localStorage.setItem(NOTIF_STORAGE_KEY, 'true');
+                showToast('Reminders Enabled 🔔', 'You\'ll get a reminder each evening before a trip day.');
+            } else {
+                notifEnabled = true;
+                localStorage.setItem(NOTIF_STORAGE_KEY, 'true');
+                showToast('In-App Reminders Enabled', 'Browser notifications were blocked — you\'ll see in-app reminders instead.');
+            }
+        } else {
+            notifEnabled = true;
+            localStorage.setItem(NOTIF_STORAGE_KEY, 'true');
+            showToast('In-App Reminders Enabled', 'Your browser doesn\'t support notifications — you\'ll see in-app reminders.');
+        }
+    } else {
+        notifEnabled = false;
+        localStorage.setItem(NOTIF_STORAGE_KEY, 'false');
+        showToast('Reminders Off', 'Daily reminders have been turned off.');
+    }
+    updateNotifButton();
+});
+
+function checkAndNotify() {
+    if (!notifEnabled) return;
+    const now = new Date();
+    const hour = now.getHours();
+    if (hour < 18 || hour > 22) return;
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+    if (!DAY_HIGHLIGHTS[tomorrowStr]) return;
+
+    const todayStr = now.toISOString().slice(0, 10);
+    if (localStorage.getItem(NOTIF_LAST_KEY) === todayStr) return;
+
+    const title = '🌺 Tomorrow\'s Kauai Plans';
+    const body = DAY_HIGHLIGHTS[tomorrowStr];
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, { body });
+    }
+    showToast(title, body);
+    localStorage.setItem(NOTIF_LAST_KEY, todayStr);
+}
+
+checkAndNotify();
+setInterval(checkAndNotify, 30 * 60 * 1000);
 </script>
 
 </body>

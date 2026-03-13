@@ -473,6 +473,163 @@
             }
         }
 
+        /* Countdown */
+        .countdown {
+            margin-top: 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .countdown-boxes {
+            display: flex;
+            justify-content: center;
+            gap: 0.6rem;
+            margin-top: 0.5rem;
+        }
+        .countdown-unit {
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            padding: 0.4rem 0.65rem;
+            min-width: 52px;
+            text-align: center;
+        }
+        .countdown-num {
+            font-size: 1.4rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .countdown-label {
+            font-size: 0.55rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            opacity: 0.75;
+        }
+        .countdown-trip-day {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+            background: rgba(255,255,255,0.18);
+            display: inline-block;
+            padding: 0.3rem 1rem;
+            border-radius: 999px;
+        }
+        .countdown-post { opacity: 0.85; font-weight: 500; }
+
+        /* Photo journal */
+        .photo-section {
+            border-top: 1px solid #f0ebe3;
+            padding-top: 0.75rem;
+            margin-top: 0.5rem;
+        }
+        .photo-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        .photo-section-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-light);
+        }
+        .photo-add-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.3rem 0.7rem;
+            border: 1.5px dashed var(--ocean);
+            border-radius: 8px;
+            background: none;
+            color: var(--ocean);
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .photo-add-btn:hover { background: #e3f2fd; }
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 0.4rem;
+        }
+        .photo-thumb {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .photo-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .photo-delete {
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.55);
+            color: white;
+            border: none;
+            font-size: 0.7rem;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        .photo-thumb:hover .photo-delete { display: flex; }
+
+        /* Photo lightbox */
+        .lightbox-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .lightbox-overlay.active { display: flex; }
+        .lightbox-overlay img {
+            max-width: 95vw;
+            max-height: 90vh;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+        .lightbox-close {
+            position: fixed;
+            top: 12px;
+            right: 16px;
+            color: white;
+            font-size: 2rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            z-index: 2001;
+        }
+
+        /* QR Code */
+        .qr-section {
+            margin-top: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .qr-section canvas {
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        .qr-label {
+            font-size: 0.75rem;
+            color: var(--text-light);
+        }
+
         /* Footer */
         footer {
             text-align: center;
@@ -498,6 +655,7 @@
     <h1>Kauai</h1>
     <p class="subtitle">The Garden Isle</p>
     <p class="dates">March 15 &ndash; 24, 2026</p>
+    <div class="countdown" id="countdown"></div>
     <svg class="wave" viewBox="0 0 1440 40" preserveAspectRatio="none">
         <path d="M0,20 C360,40 720,0 1080,20 C1260,30 1380,25 1440,20 L1440,40 L0,40 Z" fill="#faf3e8"/>
     </svg>
@@ -932,7 +1090,17 @@
 <footer>
     <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🌴🤙🌺</div>
     Aloha! Have an amazing trip.
+    <div class="qr-section">
+        <canvas id="qrCanvas" width="140" height="140"></canvas>
+        <span class="qr-label">Scan to share this itinerary</span>
+    </div>
 </footer>
+
+<!-- Photo lightbox -->
+<div class="lightbox-overlay" id="lightbox">
+    <button class="lightbox-close" id="lightboxClose">&times;</button>
+    <img id="lightboxImg" src="" alt="Photo">
+</div>
 
 <!-- Weather detail modal -->
 <div class="weather-modal-overlay" id="weatherOverlay">
@@ -1380,6 +1548,208 @@ async function loadAllWeather() {
 }
 
 loadAllWeather();
+
+// ============================================================
+// COUNTDOWN TIMER
+// ============================================================
+const TRIP_START = new Date('2026-03-15T00:00:00-05:00'); // EST
+const TRIP_END   = new Date('2026-03-24T23:59:59-10:00'); // HST
+const TRIP_DATES = [
+    '2026-03-15','2026-03-16','2026-03-17','2026-03-18','2026-03-19',
+    '2026-03-20','2026-03-21','2026-03-22','2026-03-23','2026-03-24',
+];
+
+function updateCountdown() {
+    const el = document.getElementById('countdown');
+    const now = new Date();
+
+    if (now < TRIP_START) {
+        // Pre-trip countdown
+        const diff = TRIP_START - now;
+        const days = Math.floor(diff / 86400000);
+        const hrs  = Math.floor((diff % 86400000) / 3600000);
+        const mins = Math.floor((diff % 3600000) / 60000);
+        const secs = Math.floor((diff % 60000) / 1000);
+        el.innerHTML = `
+            <div class="countdown-boxes">
+                <div class="countdown-unit"><div class="countdown-num">${days}</div><div class="countdown-label">Days</div></div>
+                <div class="countdown-unit"><div class="countdown-num">${hrs}</div><div class="countdown-label">Hours</div></div>
+                <div class="countdown-unit"><div class="countdown-num">${mins}</div><div class="countdown-label">Min</div></div>
+                <div class="countdown-unit"><div class="countdown-num">${secs}</div><div class="countdown-label">Sec</div></div>
+            </div>`;
+
+    } else if (now <= TRIP_END) {
+        // During trip — figure out which day
+        const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+        const dayIdx = TRIP_DATES.indexOf(todayStr);
+        const dayNum = dayIdx >= 0 ? dayIdx + 1 : '?';
+        el.innerHTML = `<div class="countdown-trip-day">🌺 Day ${dayNum} of your trip!</div>`;
+
+        // Auto-open today's card and highlight nav
+        if (dayIdx >= 0) {
+            const todayCard = document.getElementById('day' + dayIdx);
+            if (todayCard && !todayCard.classList.contains('open')) {
+                document.querySelectorAll('.day-card.open').forEach(c => c.classList.remove('open'));
+                todayCard.classList.add('open');
+                setTimeout(() => todayCard.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+            }
+        }
+    } else {
+        // Post-trip
+        el.innerHTML = `<div class="countdown-post">Mahalo for an amazing trip! 🤙</div>`;
+    }
+}
+updateCountdown();
+setInterval(updateCountdown, 1000);
+
+// ============================================================
+// PHOTO JOURNAL (localStorage)
+// ============================================================
+const PHOTO_STORAGE_KEY = 'kauai-trip-photos';
+
+function getPhotos() {
+    try { return JSON.parse(localStorage.getItem(PHOTO_STORAGE_KEY)) || {}; }
+    catch { return {}; }
+}
+
+function savePhotos(photos) {
+    localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(photos));
+}
+
+function renderPhotos(date, container) {
+    const photos = getPhotos();
+    const dayPhotos = photos[date] || [];
+    const grid = container.querySelector('.photo-grid');
+    grid.innerHTML = dayPhotos.map((src, i) => `
+        <div class="photo-thumb">
+            <img src="${src}" alt="Trip photo" loading="lazy" onclick="openLightbox('${date}', ${i})">
+            <button class="photo-delete" onclick="event.stopPropagation(); deletePhoto('${date}', ${i})">&times;</button>
+        </div>
+    `).join('');
+}
+
+function addPhoto(date, file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        // Resize to save localStorage space
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX = 800;
+            let w = img.width, h = img.height;
+            if (w > MAX || h > MAX) {
+                if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+                else { w = Math.round(w * MAX / h); h = MAX; }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+            const photos = getPhotos();
+            if (!photos[date]) photos[date] = [];
+            photos[date].push(dataUrl);
+            try {
+                savePhotos(photos);
+            } catch (err) {
+                alert('Storage full! Try deleting some older photos.');
+                return;
+            }
+            const section = document.querySelector(`.day-card[data-date="${date}"] .photo-section`);
+            if (section) renderPhotos(date, section);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+window.deletePhoto = function(date, index) {
+    const photos = getPhotos();
+    if (photos[date]) {
+        photos[date].splice(index, 1);
+        if (photos[date].length === 0) delete photos[date];
+        savePhotos(photos);
+        const section = document.querySelector(`.day-card[data-date="${date}"] .photo-section`);
+        if (section) renderPhotos(date, section);
+    }
+};
+
+// Lightbox
+const lightbox = document.getElementById('lightbox');
+const lightboxImg = document.getElementById('lightboxImg');
+document.getElementById('lightboxClose').addEventListener('click', () => lightbox.classList.remove('active'));
+lightbox.addEventListener('click', (e) => { if (e.target === lightbox) lightbox.classList.remove('active'); });
+
+window.openLightbox = function(date, index) {
+    const photos = getPhotos();
+    const src = photos[date]?.[index];
+    if (src) {
+        lightboxImg.src = src;
+        lightbox.classList.add('active');
+    }
+};
+
+// Inject photo sections into every day card
+document.querySelectorAll('.day-card[data-date]').forEach(card => {
+    const date = card.dataset.date;
+    const content = card.querySelector('.day-content');
+    if (!content) return;
+
+    const section = document.createElement('div');
+    section.className = 'photo-section';
+    section.innerHTML = `
+        <div class="photo-section-header">
+            <span class="photo-section-title">📷 Photos</span>
+            <button class="photo-add-btn" onclick="document.getElementById('photo-input-${date}').click()">+ Add</button>
+            <input type="file" id="photo-input-${date}" accept="image/*" multiple style="display:none"
+                   onchange="Array.from(this.files).forEach(f => addPhoto('${date}', f)); this.value='';">
+        </div>
+        <div class="photo-grid"></div>
+    `;
+    content.appendChild(section);
+    renderPhotos(date, section);
+});
+
+// ============================================================
+// QR CODE (lightweight inline generator)
+// ============================================================
+// Minimal QR Code generator — produces a module matrix for a URL
+(function generateQR() {
+    const url = 'https://perrygt7.github.io/kauai-itinerary/';
+    const canvas = document.getElementById('qrCanvas');
+    if (!canvas) return;
+
+    // Use a CDN-loaded micro QR library
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js';
+    script.onload = () => {
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+
+        const ctx = canvas.getContext('2d');
+        const size = canvas.width;
+        const modules = qr.getModuleCount();
+        const cellSize = size / modules;
+
+        // White background with rounded corners
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.roundRect(0, 0, size, size, 12);
+        ctx.fill();
+
+        // QR modules in ocean color
+        ctx.fillStyle = '#005f8a';
+        for (let r = 0; r < modules; r++) {
+            for (let c = 0; c < modules; c++) {
+                if (qr.isDark(r, c)) {
+                    ctx.fillRect(c * cellSize, r * cellSize, cellSize + 0.5, cellSize + 0.5);
+                }
+            }
+        }
+    };
+    document.head.appendChild(script);
+})();
 </script>
 
 </body>

@@ -830,6 +830,27 @@
             font-weight: 600;
         }
 
+        /* Hype video */
+        .video-section {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            text-align: center;
+        }
+        .video-section h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            color: var(--ocean-dark);
+            margin-bottom: 0.75rem;
+        }
+        .video-section video {
+            width: 100%;
+            max-width: 600px;
+            border-radius: 12px;
+        }
+
         /* Footer */
         footer {
             text-align: center;
@@ -845,7 +866,7 @@
             #map { height: 450px; }
             .restaurant-grid { grid-template-columns: 1fr 1fr 1fr; }
             .phrase-word { min-width: 110px; }
-            .playlist-section, .phrase-guide { max-width: 600px; margin-left: auto; margin-right: auto; }
+            .video-section, .playlist-section, .phrase-guide { max-width: 600px; margin-left: auto; margin-right: auto; }
         }
     </style>
 </head>
@@ -903,6 +924,14 @@
 
 <!-- Itinerary -->
 <div class="container">
+
+    <!-- Hype Video -->
+    <div class="video-section">
+        <h2>🎬 Your Kauai Adventure</h2>
+        <video controls preload="metadata" poster="">
+            <source src="hype-video.mp4" type="video/mp4">
+        </video>
+    </div>
 
     <!-- Day 0: Sunday March 15 -->
     <div class="day-card" id="day0" data-date="2026-03-15" data-location="atl">

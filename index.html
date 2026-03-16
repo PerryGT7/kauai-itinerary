@@ -2008,75 +2008,103 @@ updateCountdown();
 setInterval(updateCountdown, 1000);
 
 // ============================================================
-// PHOTO JOURNAL (localStorage)
+// PHOTO JOURNAL (Cloudinary — shared across all devices)
 // ============================================================
-const PHOTO_STORAGE_KEY = 'kauai-trip-photos';
+const CLOUDINARY_CLOUD      = 'dgzktnhe3';
+const CLOUDINARY_PRESET     = 'Kauai-itinerary';
+const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`;
+const CLOUDINARY_BASE       = `https://res.cloudinary.com/${CLOUDINARY_CLOUD}`;
+const DELETED_KEY           = 'kauai-hidden-photos'; // local hide-list (public_ids)
 
-function getPhotos() {
-    try { return JSON.parse(localStorage.getItem(PHOTO_STORAGE_KEY)) || {}; }
-    catch { return {}; }
+// In-memory cache: date → [{url, publicId}]
+const photoCache = {};
+
+function getDeleted() {
+    try { return new Set(JSON.parse(localStorage.getItem(DELETED_KEY)) || []); }
+    catch { return new Set(); }
 }
 
-function savePhotos(photos) {
-    localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(photos));
+function markDeleted(publicId) {
+    const deleted = getDeleted();
+    deleted.add(publicId);
+    localStorage.setItem(DELETED_KEY, JSON.stringify([...deleted]));
 }
 
-function renderPhotos(date, container) {
-    const photos = getPhotos();
-    const dayPhotos = photos[date] || [];
-    const grid = container.querySelector('.photo-grid');
-    grid.innerHTML = dayPhotos.map((src, i) => `
+function thumbUrl(url) {
+    return url.replace('/upload/', '/upload/c_fill,w_160,h_160,q_auto,f_auto/');
+}
+
+// Fetch all photos for a day from Cloudinary by tag
+function fetchPhotosForDate(date) {
+    const tag = `kauai-${date}`;
+    return fetch(`${CLOUDINARY_BASE}/image/list/${tag}.json`)
+        .then(res => res.ok ? res.json() : { resources: [] })
+        .then(data => (data.resources || []).map(r => ({
+            url: `${CLOUDINARY_BASE}/image/upload/${r.public_id}.${r.format}`,
+            publicId: r.public_id
+        })))
+        .catch(() => []);
+}
+
+function _renderGrid(date, grid, photos) {
+    const deleted = getDeleted();
+    const visible = photos.filter(p => !deleted.has(p.publicId));
+    grid.innerHTML = visible.map((p, i) => `
         <div class="photo-thumb">
-            <img src="${src}" alt="Trip photo" loading="lazy" onclick="openLightbox('${date}', ${i})">
+            <img src="${thumbUrl(p.url)}" alt="Trip photo" loading="lazy" onclick="openLightbox('${date}', ${i})">
             <button class="photo-delete" onclick="event.stopPropagation(); deletePhoto('${date}', ${i})">&times;</button>
         </div>
     `).join('');
 }
 
-function addPhoto(date, file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        // Resize to save localStorage space
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const MAX = 800;
-            let w = img.width, h = img.height;
-            if (w > MAX || h > MAX) {
-                if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-                else { w = Math.round(w * MAX / h); h = MAX; }
-            }
-            canvas.width = w;
-            canvas.height = h;
-            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+function renderPhotos(date, container) {
+    const grid = container.querySelector('.photo-grid');
+    if (photoCache[date]) {
+        _renderGrid(date, grid, photoCache[date]);
+    } else {
+        grid.innerHTML = '<p style="color:#888;font-size:0.8rem;padding:4px 0">Loading…</p>';
+        fetchPhotosForDate(date).then(photos => {
+            photoCache[date] = photos;
+            _renderGrid(date, grid, photos);
+        });
+    }
+}
 
-            const photos = getPhotos();
-            if (!photos[date]) photos[date] = [];
-            photos[date].push(dataUrl);
-            try {
-                savePhotos(photos);
-            } catch (err) {
-                alert('Storage full! Try deleting some older photos.');
-                return;
-            }
-            const section = document.querySelector(`.day-card[data-date="${date}"] .photo-section`);
-            if (section) renderPhotos(date, section);
-        };
-        img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+function addPhoto(date, file) {
+    const section = document.querySelector(`.day-card[data-date="${date}"] .photo-section`);
+    const btn = section?.querySelector('.photo-add-btn');
+    if (btn) { btn.textContent = 'Uploading…'; btn.disabled = true; }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_PRESET);
+    formData.append('folder', `kauai-trip/${date}`);
+    formData.append('tags', `kauai-${date}`);
+
+    fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: formData })
+        .then(res => { if (!res.ok) throw new Error('Upload failed'); return res.json(); })
+        .then(data => {
+            if (!photoCache[date]) photoCache[date] = [];
+            photoCache[date].push({ url: data.secure_url, publicId: data.public_id });
+            if (section) _renderGrid(date, section.querySelector('.photo-grid'), photoCache[date]);
+        })
+        .catch(err => {
+            console.error('Cloudinary upload error:', err);
+            alert('Photo upload failed. Please check your connection and try again.');
+        })
+        .finally(() => {
+            if (btn) { btn.textContent = '+ Add'; btn.disabled = false; }
+        });
 }
 
 window.deletePhoto = function(date, index) {
-    const photos = getPhotos();
-    if (photos[date]) {
-        photos[date].splice(index, 1);
-        if (photos[date].length === 0) delete photos[date];
-        savePhotos(photos);
-        const section = document.querySelector(`.day-card[data-date="${date}"] .photo-section`);
-        if (section) renderPhotos(date, section);
-    }
+    const deleted = getDeleted();
+    const visible = (photoCache[date] || []).filter(p => !deleted.has(p.publicId));
+    const photo = visible[index];
+    if (!photo) return;
+    markDeleted(photo.publicId);
+    const section = document.querySelector(`.day-card[data-date="${date}"] .photo-section`);
+    if (section) _renderGrid(date, section.querySelector('.photo-grid'), photoCache[date] || []);
 };
 
 // Lightbox
@@ -2086,10 +2114,11 @@ document.getElementById('lightboxClose').addEventListener('click', () => lightbo
 lightbox.addEventListener('click', (e) => { if (e.target === lightbox) lightbox.classList.remove('active'); });
 
 window.openLightbox = function(date, index) {
-    const photos = getPhotos();
-    const src = photos[date]?.[index];
-    if (src) {
-        lightboxImg.src = src;
+    const deleted = getDeleted();
+    const visible = (photoCache[date] || []).filter(p => !deleted.has(p.publicId));
+    const photo = visible[index];
+    if (photo) {
+        lightboxImg.src = photo.url;
         lightbox.classList.add('active');
     }
 };

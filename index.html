@@ -600,6 +600,7 @@
             max-height: 90vh;
             border-radius: 8px;
             object-fit: contain;
+            transition: opacity 0.15s ease;
         }
         .lightbox-close {
             position: fixed;
@@ -2304,13 +2305,32 @@ function lbVisible() {
     return (photoCache[lbDate] || []).filter(p => !deleted.has(p.publicId));
 }
 
+function viewUrl(url) {
+    return url.replace('/upload/', '/upload/c_limit,w_1200,q_auto,f_auto/');
+}
+
+function lbPreload(photos, index) {
+    [index - 1, index + 1].forEach(i => {
+        if (i >= 0 && i < photos.length) {
+            const img = new Image();
+            img.src = viewUrl(photos[i].url);
+        }
+    });
+}
+
 function lbShow(index) {
     const photos = lbVisible();
     if (!photos.length) return;
     lbIndex = Math.max(0, Math.min(index, photos.length - 1));
-    lightboxImg.src = photos[lbIndex].url;
+    const url = viewUrl(photos[lbIndex].url);
+    if (lightboxImg.src !== url) {
+        lightboxImg.style.opacity = '0';
+        lightboxImg.onload = () => { lightboxImg.style.opacity = '1'; };
+        lightboxImg.src = url;
+    }
     document.getElementById('lightboxPrev').disabled = lbIndex === 0;
     document.getElementById('lightboxNext').disabled = lbIndex === photos.length - 1;
+    lbPreload(photos, lbIndex);
 }
 
 document.getElementById('lightboxClose').addEventListener('click', () => lightbox.classList.remove('active'));

@@ -2635,10 +2635,18 @@ function saveFoundLocal(set) {
 async function loadFoundFromCloud() {
     try {
         const res = await fetch(SPY_FETCH_URL + '?t=' + Date.now());
-        if (!res.ok) return null;
-        const data = await res.json();
+        if (!res.ok) {
+            console.warn('[EyeSpy] Cloud fetch failed:', res.status, res.statusText);
+            return null;
+        }
+        const text = await res.text();
+        const data = JSON.parse(text);
+        console.log('[EyeSpy] Loaded from cloud:', data);
         return Array.isArray(data) ? new Set(data) : null;
-    } catch { return null; }
+    } catch (e) {
+        console.warn('[EyeSpy] Cloud fetch error:', e);
+        return null;
+    }
 }
 
 async function saveFoundToCloud(set) {
@@ -2652,9 +2660,20 @@ async function saveFoundToCloud(set) {
         fd.append('resource_type', 'raw');
         fd.append('overwrite', 'true');
         const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/raw/upload`, { method: 'POST', body: fd });
-        if (res.ok) { spySetStatus('Synced ✓'); setTimeout(() => spySetStatus(''), 2000); }
-        else { spySetStatus('Sync failed'); }
-    } catch { spySetStatus('Offline'); }
+        const body = await res.json();
+        if (res.ok) {
+            console.log('[EyeSpy] Saved to cloud:', body);
+            spySetStatus('Synced ✓');
+            setTimeout(() => spySetStatus(''), 2000);
+        } else {
+            const msg = body?.error?.message || res.statusText;
+            console.error('[EyeSpy] Upload failed:', msg, body);
+            spySetStatus(`Sync failed: ${msg}`);
+        }
+    } catch (e) {
+        console.error('[EyeSpy] Upload error:', e);
+        spySetStatus('Offline');
+    }
 }
 
 function scheduleSyncToCloud(set) {

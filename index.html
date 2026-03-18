@@ -631,6 +631,134 @@
         .lightbox-nav.next { right: 0; }
         .lightbox-nav:disabled { opacity: 0.2; cursor: default; }
 
+        /* Eye Spy Game */
+        .eye-spy-section {
+            padding: 1rem;
+        }
+        .eye-spy-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .eye-spy-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.4rem;
+            color: var(--ocean-dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .eye-spy-progress-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--palm);
+        }
+        .eye-spy-bar-bg {
+            width: 100px;
+            height: 8px;
+            background: #d4e6d4;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .eye-spy-bar-fill {
+            height: 100%;
+            background: var(--palm);
+            border-radius: 999px;
+            transition: width 0.4s ease;
+        }
+        .eye-spy-reset {
+            background: none;
+            border: 1.5px solid #ccc;
+            border-radius: 999px;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            color: var(--text-light);
+            cursor: pointer;
+        }
+        .eye-spy-reset:hover { border-color: var(--sunset); color: var(--sunset); }
+        .eye-spy-category {
+            margin-bottom: 1rem;
+        }
+        .eye-spy-cat-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-light);
+            margin-bottom: 0.5rem;
+        }
+        .eye-spy-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 0.5rem;
+        }
+        .spy-item {
+            background: var(--white);
+            border: 2px solid #e0d4b8;
+            border-radius: 12px;
+            padding: 0.65rem 0.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            position: relative;
+        }
+        .spy-item:active { transform: scale(0.95); }
+        .spy-item.found {
+            background: #e8f5e9;
+            border-color: var(--palm-light);
+        }
+        .spy-item.found .spy-emoji { filter: none; }
+        .spy-item:not(.found) .spy-emoji { filter: grayscale(0.3); }
+        .spy-emoji {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 0.3rem;
+            line-height: 1;
+        }
+        .spy-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text);
+            display: block;
+            line-height: 1.2;
+        }
+        .spy-hint {
+            font-size: 0.65rem;
+            color: var(--text-light);
+            display: block;
+            margin-top: 0.2rem;
+            line-height: 1.3;
+        }
+        .spy-check {
+            position: absolute;
+            top: 4px;
+            right: 6px;
+            font-size: 0.85rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .spy-item.found .spy-check { opacity: 1; }
+        .eye-spy-complete {
+            display: none;
+            text-align: center;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #e8f5e9, #fff9e6);
+            border-radius: 16px;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--palm);
+        }
+        .eye-spy-complete.show { display: block; }
+
         /* QR Code */
         .qr-section {
             margin-top: 1rem;
@@ -916,6 +1044,7 @@
     <a href="#day8">Mon 3/23</a>
     <a href="#day9">Tue 3/24</a>
     <a href="#phraseGuide">Phrases</a>
+    <a href="#eyeSpy">👀 Eye Spy</a>
 </nav>
 
 <!-- Time Zone Clocks -->
@@ -1470,6 +1599,41 @@
     </div>
 
 </div>
+
+<!-- Eye Spy Game -->
+<section class="eye-spy-section" id="eyeSpy">
+    <div class="eye-spy-header">
+        <span class="eye-spy-title">👀 Eye Spy Kauai</span>
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+            <div class="eye-spy-progress-wrap">
+                <div class="eye-spy-bar-bg"><div class="eye-spy-bar-fill" id="spyBarFill" style="width:0%"></div></div>
+                <span id="spyCount">0 / 0</span>
+            </div>
+            <button class="eye-spy-reset" onclick="resetEyeSpy()">Reset</button>
+        </div>
+    </div>
+
+    <div class="eye-spy-complete" id="spyComplete">
+        🎉 You found everything! Amazing eyes — Kauai showed you all its magic! 🌺
+    </div>
+
+    <div class="eye-spy-category">
+        <div class="eye-spy-cat-label">Wildlife & Nature</div>
+        <div class="eye-spy-grid" id="spyCatNature"></div>
+    </div>
+    <div class="eye-spy-category">
+        <div class="eye-spy-cat-label">Landmarks & Scenery</div>
+        <div class="eye-spy-grid" id="spyCatLandmarks"></div>
+    </div>
+    <div class="eye-spy-category">
+        <div class="eye-spy-cat-label">Food & Drink</div>
+        <div class="eye-spy-grid" id="spyCatFood"></div>
+    </div>
+    <div class="eye-spy-category">
+        <div class="eye-spy-cat-label">Activities & Culture</div>
+        <div class="eye-spy-grid" id="spyCatCulture"></div>
+    </div>
+</section>
 
 <footer>
     <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🌴🤙🌺</div>
@@ -2329,6 +2493,92 @@ function checkAndNotify() {
 
 checkAndNotify();
 setInterval(checkAndNotify, 30 * 60 * 1000);
+
+// ── Eye Spy Game ────────────────────────────────────────────────────────────
+const EYE_SPY_ITEMS = [
+    // Nature & Wildlife
+    { id: 'sea-turtle',    cat: 'nature',    emoji: '🐢', label: 'Sea Turtle',       hint: 'Look in the water at Poipu Beach' },
+    { id: 'wild-rooster',  cat: 'nature',    emoji: '🐓', label: 'Wild Rooster',     hint: 'Kauai\'s most common resident!' },
+    { id: 'gecko',         cat: 'nature',    emoji: '🦎', label: 'Gecko',            hint: 'Check walls & ceilings at night' },
+    { id: 'dolphin',       cat: 'nature',    emoji: '🐬', label: 'Spinner Dolphin',  hint: 'Leap offshore from beaches' },
+    { id: 'whale',         cat: 'nature',    emoji: '🐋', label: 'Humpback Whale',   hint: 'March is peak season!' },
+    { id: 'tropical-fish', cat: 'nature',    emoji: '🐠', label: 'Tropical Fish',    hint: 'Peek into the shallows' },
+    { id: 'monk-seal',     cat: 'nature',    emoji: '🦭', label: 'Hawaiian Monk Seal',hint: 'Rare & endangered — super lucky!' },
+    { id: 'hibiscus',      cat: 'nature',    emoji: '🌺', label: 'Hibiscus Flower',  hint: 'Hawaii\'s state flower' },
+    { id: 'rainbow',       cat: 'nature',    emoji: '🌈', label: 'Rainbow',          hint: 'Rain + sun = magic' },
+    { id: 'double-rainbow',cat: 'nature',    emoji: '🌈🌈', label: 'Double Rainbow', hint: 'Extra lucky, extra Kauai!' },
+    { id: 'coconut-palm',  cat: 'nature',    emoji: '🌴', label: 'Coconut Palm',     hint: 'Spot one with coconuts up top' },
+    { id: 'plumeria',      cat: 'nature',    emoji: '🌸', label: 'Plumeria Flower',  hint: 'Sweet-smelling island bloom' },
+    // Landmarks & Scenery
+    { id: 'waterfall',     cat: 'landmarks', emoji: '💦', label: 'Waterfall',        hint: 'Waimea Canyon is full of them' },
+    { id: 'red-dirt',      cat: 'landmarks', emoji: '🟥', label: 'Red Dirt Road',    hint: 'Iconic Waimea Canyon red soil' },
+    { id: 'helicopter',    cat: 'landmarks', emoji: '🚁', label: 'Helicopter',       hint: 'You\'ll be in one on Day 3!' },
+    { id: 'spouting-horn', cat: 'landmarks', emoji: '🌊', label: 'Spouting Horn',    hint: 'Ocean blowhole at Poipu' },
+    { id: 'red-sunset',    cat: 'landmarks', emoji: '🌅', label: 'Red Sunset',       hint: 'Best from the South Shore' },
+    { id: 'sea-cave',      cat: 'landmarks', emoji: '🕳️', label: 'Sea Cave',        hint: 'Spotted from helicopter or boat' },
+    { id: 'taro-field',    cat: 'landmarks', emoji: '🌾', label: 'Taro Field',       hint: 'Traditional Hawaiian crop' },
+    { id: 'napali-cliffs', cat: 'landmarks', emoji: '🏔️', label: 'Nā Pali Cliffs',  hint: 'Soaring sea cliffs from the air' },
+    // Food & Drink
+    { id: 'shave-ice',     cat: 'food',      emoji: '🍧', label: 'Shave Ice',        hint: 'The Hawaiian classic' },
+    { id: 'poke-bowl',     cat: 'food',      emoji: '🥢', label: 'Poke Bowl',        hint: 'Fresh ahi from Koloa Fish Market' },
+    { id: 'spam-musubi',   cat: 'food',      emoji: '🍱', label: 'Spam Musubi',      hint: 'Hawaii\'s favorite snack' },
+    { id: 'malasada',      cat: 'food',      emoji: '🍩', label: 'Malasada',         hint: 'Portuguese donut, Hawaii staple' },
+    { id: 'plate-lunch',   cat: 'food',      emoji: '🍽️', label: 'Plate Lunch',     hint: 'Rice, mac salad & protein' },
+    { id: 'lapperts',      cat: 'food',      emoji: '🍦', label: 'Lappert\'s Ice Cream', hint: 'Day 3 stop in Koloa Town!' },
+    { id: 'fresh-coconut', cat: 'food',      emoji: '🥥', label: 'Fresh Coconut',   hint: 'Drink straight from the shell' },
+    // Activities & Culture
+    { id: 'shaka',         cat: 'culture',   emoji: '🤙', label: 'Shaka Sign',       hint: 'Spot a local throwing one' },
+    { id: 'surfer',        cat: 'culture',   emoji: '🏄', label: 'Surfer',           hint: 'Watch during the kids\' lesson!' },
+    { id: 'ukulele',       cat: 'culture',   emoji: '🎸', label: 'Ukulele Player',   hint: 'Listen for island music' },
+    { id: 'luau-fire',     cat: 'culture',   emoji: '🔥', label: 'Luau Fire Dance',  hint: 'Smith Family Luau, Day 5' },
+    { id: 'atv',           cat: 'culture',   emoji: '🚜', label: 'ATV',              hint: 'Kipu Ranch adventure, Day 5' },
+    { id: 'train',         cat: 'culture',   emoji: '🚂', label: 'Plantation Train', hint: 'Kilohana Plantation, Day 6' },
+    { id: 'stars',         cat: 'culture',   emoji: '🌙', label: 'Stars on Beach',   hint: 'Minimal light pollution — look up!' },
+    { id: 'hula-dancer',   cat: 'culture',   emoji: '💃', label: 'Hula Dancer',      hint: 'Traditional Hawaiian hula' },
+];
+
+const SPY_KEY = 'kauai-eye-spy-found';
+const CAT_IDS = { nature: 'spyCatNature', landmarks: 'spyCatLandmarks', food: 'spyCatFood', culture: 'spyCatCulture' };
+
+function getFoundSet() {
+    try { return new Set(JSON.parse(localStorage.getItem(SPY_KEY) || '[]')); } catch { return new Set(); }
+}
+function saveFound(set) {
+    localStorage.setItem(SPY_KEY, JSON.stringify([...set]));
+}
+
+function renderEyeSpy() {
+    const found = getFoundSet();
+    const total = EYE_SPY_ITEMS.length;
+    const count = EYE_SPY_ITEMS.filter(i => found.has(i.id)).length;
+
+    document.getElementById('spyCount').textContent = `${count} / ${total}`;
+    document.getElementById('spyBarFill').style.width = `${(count / total) * 100}%`;
+    document.getElementById('spyComplete').classList.toggle('show', count === total);
+
+    // Clear and re-render each category
+    Object.values(CAT_IDS).forEach(id => { document.getElementById(id).innerHTML = ''; });
+
+    EYE_SPY_ITEMS.forEach(item => {
+        const isFound = found.has(item.id);
+        const el = document.createElement('div');
+        el.className = 'spy-item' + (isFound ? ' found' : '');
+        el.innerHTML = `<span class="spy-emoji">${item.emoji}</span><span class="spy-label">${item.label}</span><span class="spy-hint">${item.hint}</span><span class="spy-check">✅</span>`;
+        el.addEventListener('click', () => {
+            const f = getFoundSet();
+            if (f.has(item.id)) { f.delete(item.id); } else { f.add(item.id); }
+            saveFound(f);
+            renderEyeSpy();
+        });
+        document.getElementById(CAT_IDS[item.cat]).appendChild(el);
+    });
+}
+
+window.resetEyeSpy = function() {
+    if (confirm('Reset all Eye Spy progress?')) { localStorage.removeItem(SPY_KEY); renderEyeSpy(); }
+};
+
+renderEyeSpy();
 </script>
 
 </body>

@@ -1609,6 +1609,7 @@
                 <div class="eye-spy-bar-bg"><div class="eye-spy-bar-fill" id="spyBarFill" style="width:0%"></div></div>
                 <span id="spyCount">0 / 0</span>
             </div>
+            <span id="spySyncStatus" style="font-size:0.7rem;color:var(--text-light);"></span>
             <button class="eye-spy-reset" onclick="resetEyeSpy()">Reset</button>
         </div>
     </div>
@@ -2537,18 +2538,58 @@ const EYE_SPY_ITEMS = [
     { id: 'hula-dancer',   cat: 'culture',   emoji: '💃', label: 'Hula Dancer',      hint: 'Traditional Hawaiian hula' },
 ];
 
-const SPY_KEY = 'kauai-eye-spy-found';
+const SPY_KEY        = 'kauai-eye-spy-found';
+const SPY_CLOUD_ID   = 'kauai-eye-spy-state';
+const SPY_FETCH_URL  = `${CLOUDINARY_BASE}/raw/upload/${SPY_CLOUD_ID}.json`;
 const CAT_IDS = { nature: 'spyCatNature', landmarks: 'spyCatLandmarks', food: 'spyCatFood', culture: 'spyCatCulture' };
+
+let spySyncTimer = null;
+
+function spySetStatus(msg) {
+    const el = document.getElementById('spySyncStatus');
+    if (el) el.textContent = msg;
+}
 
 function getFoundSet() {
     try { return new Set(JSON.parse(localStorage.getItem(SPY_KEY) || '[]')); } catch { return new Set(); }
 }
-function saveFound(set) {
+
+function saveFoundLocal(set) {
     localStorage.setItem(SPY_KEY, JSON.stringify([...set]));
 }
 
-function renderEyeSpy() {
-    const found = getFoundSet();
+async function loadFoundFromCloud() {
+    try {
+        const res = await fetch(SPY_FETCH_URL + '?t=' + Date.now());
+        if (!res.ok) return null;
+        const data = await res.json();
+        return Array.isArray(data) ? new Set(data) : null;
+    } catch { return null; }
+}
+
+async function saveFoundToCloud(set) {
+    spySetStatus('Syncing…');
+    try {
+        const blob = new Blob([JSON.stringify([...set])], { type: 'application/json' });
+        const fd = new FormData();
+        fd.append('file', blob, `${SPY_CLOUD_ID}.json`);
+        fd.append('upload_preset', CLOUDINARY_PRESET);
+        fd.append('public_id', SPY_CLOUD_ID);
+        fd.append('resource_type', 'raw');
+        fd.append('overwrite', 'true');
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/raw/upload`, { method: 'POST', body: fd });
+        if (res.ok) { spySetStatus('Synced ✓'); setTimeout(() => spySetStatus(''), 2000); }
+        else { spySetStatus('Sync failed'); }
+    } catch { spySetStatus('Offline'); }
+}
+
+function scheduleSyncToCloud(set) {
+    clearTimeout(spySyncTimer);
+    spySyncTimer = setTimeout(() => saveFoundToCloud(set), 1000);
+}
+
+function renderEyeSpy(found) {
+    if (!found) found = getFoundSet();
     const total = EYE_SPY_ITEMS.length;
     const count = EYE_SPY_ITEMS.filter(i => found.has(i.id)).length;
 
@@ -2556,7 +2597,6 @@ function renderEyeSpy() {
     document.getElementById('spyBarFill').style.width = `${(count / total) * 100}%`;
     document.getElementById('spyComplete').classList.toggle('show', count === total);
 
-    // Clear and re-render each category
     Object.values(CAT_IDS).forEach(id => { document.getElementById(id).innerHTML = ''; });
 
     EYE_SPY_ITEMS.forEach(item => {
@@ -2567,18 +2607,35 @@ function renderEyeSpy() {
         el.addEventListener('click', () => {
             const f = getFoundSet();
             if (f.has(item.id)) { f.delete(item.id); } else { f.add(item.id); }
-            saveFound(f);
-            renderEyeSpy();
+            saveFoundLocal(f);
+            renderEyeSpy(f);
+            scheduleSyncToCloud(f);
         });
         document.getElementById(CAT_IDS[item.cat]).appendChild(el);
     });
 }
 
 window.resetEyeSpy = function() {
-    if (confirm('Reset all Eye Spy progress?')) { localStorage.removeItem(SPY_KEY); renderEyeSpy(); }
+    if (confirm('Reset all Eye Spy progress?')) {
+        const empty = new Set();
+        saveFoundLocal(empty);
+        renderEyeSpy(empty);
+        saveFoundToCloud(empty);
+    }
 };
 
+// On load: render local state immediately, then refresh from cloud
 renderEyeSpy();
+spySetStatus('Loading…');
+loadFoundFromCloud().then(cloudSet => {
+    if (cloudSet) {
+        saveFoundLocal(cloudSet);
+        renderEyeSpy(cloudSet);
+        spySetStatus('');
+    } else {
+        spySetStatus('');
+    }
+});
 </script>
 
 </body>

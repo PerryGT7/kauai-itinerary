@@ -582,6 +582,17 @@
             line-height: 1;
         }
         .photo-thumb:hover .photo-delete { display: flex; }
+        .video-badge {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            background: rgba(0,0,0,0.55);
+            color: #fff;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            pointer-events: none;
+        }
 
         /* Photo lightbox */
         .lightbox-overlay {
@@ -595,7 +606,8 @@
             cursor: pointer;
         }
         .lightbox-overlay.active { display: flex; }
-        .lightbox-overlay img {
+        .lightbox-overlay img,
+        .lightbox-overlay video {
             max-width: 95vw;
             max-height: 90vh;
             border-radius: 8px;
@@ -1651,6 +1663,7 @@
     <button class="lightbox-close" id="lightboxClose">&times;</button>
     <button class="lightbox-nav prev" id="lightboxPrev">&#8249;</button>
     <img id="lightboxImg" src="" alt="Photo">
+    <video id="lightboxVideo" controls playsinline style="display:none"></video>
     <button class="lightbox-nav next" id="lightboxNext">&#8250;</button>
 </div>
 
@@ -2218,20 +2231,29 @@ function markDeleted(publicId) {
     localStorage.setItem(DELETED_KEY, JSON.stringify([...deleted]));
 }
 
-function thumbUrl(url) {
-    return url.replace('/upload/', '/upload/c_fill,w_160,h_160,q_auto,f_auto/');
+function thumbUrl(item) {
+    if (item.type === 'video') {
+        return item.url
+            .replace('/video/upload/', '/video/upload/c_fill,w_160,h_160,so_0,q_auto/')
+            .replace(/\.\w+$/, '.jpg');
+    }
+    return item.url.replace('/upload/', '/upload/c_fill,w_160,h_160,q_auto,f_auto/');
 }
 
-// Fetch all photos for a day from Cloudinary by tag
+// Fetch all photos + videos for a day from Cloudinary by tag
 function fetchPhotosForDate(date) {
     const tag = `kauai-${date}`;
-    return fetch(`${CLOUDINARY_BASE}/image/list/${tag}.json`)
-        .then(res => res.ok ? res.json() : { resources: [] })
-        .then(data => (data.resources || []).map(r => ({
-            url: `${CLOUDINARY_BASE}/image/upload/${r.public_id}.${r.format}`,
-            publicId: r.public_id
-        })))
-        .catch(() => []);
+    const fetchList = (type) =>
+        fetch(`${CLOUDINARY_BASE}/${type}/list/${tag}.json`)
+            .then(res => res.ok ? res.json() : { resources: [] })
+            .then(data => (data.resources || []).map(r => ({
+                url: `${CLOUDINARY_BASE}/${type}/upload/${r.public_id}.${r.format}`,
+                publicId: r.public_id,
+                type,
+            })))
+            .catch(() => []);
+    return Promise.all([fetchList('image'), fetchList('video')])
+        .then(([images, videos]) => [...images, ...videos]);
 }
 
 function _renderGrid(date, grid, photos) {
@@ -2239,7 +2261,8 @@ function _renderGrid(date, grid, photos) {
     const visible = photos.filter(p => !deleted.has(p.publicId));
     grid.innerHTML = visible.map((p, i) => `
         <div class="photo-thumb">
-            <img src="${thumbUrl(p.url)}" alt="Trip photo" loading="lazy" onclick="openLightbox('${date}', ${i})">
+            <img src="${thumbUrl(p)}" alt="Trip media" loading="lazy" onclick="openLightbox('${date}', ${i})">
+            ${p.type === 'video' ? '<span class="video-badge">▶ video</span>' : ''}
             <button class="photo-delete" onclick="event.stopPropagation(); deletePhoto('${date}', ${i})">&times;</button>
         </div>
     `).join('');
@@ -2259,6 +2282,10 @@ function renderPhotos(date, container) {
 }
 
 function addPhoto(date, file) {
+    const isVideo = file.type.startsWith('video/');
+    const resourceType = isVideo ? 'video' : 'image';
+    const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/${resourceType}/upload`;
+
     const section = document.querySelector(`.day-card[data-date="${date}"] .photo-section`);
     const btn = section?.querySelector('.photo-add-btn');
     if (btn) { btn.textContent = 'Uploading…'; btn.disabled = true; }
@@ -2269,16 +2296,16 @@ function addPhoto(date, file) {
     formData.append('folder', `kauai-trip/${date}`);
     formData.append('tags', `kauai-${date}`);
 
-    fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: formData })
+    fetch(uploadUrl, { method: 'POST', body: formData })
         .then(res => { if (!res.ok) throw new Error('Upload failed'); return res.json(); })
         .then(data => {
             if (!photoCache[date]) photoCache[date] = [];
-            photoCache[date].push({ url: data.secure_url, publicId: data.public_id });
+            photoCache[date].push({ url: data.secure_url, publicId: data.public_id, type: resourceType });
             if (section) _renderGrid(date, section.querySelector('.photo-grid'), photoCache[date]);
         })
         .catch(err => {
             console.error('Cloudinary upload error:', err);
-            alert('Photo upload failed. Please check your connection and try again.');
+            alert('Upload failed. Please check your connection and try again.');
         })
         .finally(() => {
             if (btn) { btn.textContent = '+ Add'; btn.disabled = false; }
@@ -2298,6 +2325,7 @@ window.deletePhoto = function(date, index) {
 // Lightbox
 const lightbox = document.getElementById('lightbox');
 const lightboxImg = document.getElementById('lightboxImg');
+const lightboxVideo = document.getElementById('lightboxVideo');
 let lbDate = null, lbIndex = 0;
 
 function lbVisible() {
@@ -2305,15 +2333,18 @@ function lbVisible() {
     return (photoCache[lbDate] || []).filter(p => !deleted.has(p.publicId));
 }
 
-function viewUrl(url) {
-    return url.replace('/upload/', '/upload/c_limit,w_1200,q_auto,f_auto/');
+function viewUrl(item) {
+    if (item.type === 'video') {
+        return item.url.replace('/video/upload/', '/video/upload/c_limit,w_1200,q_auto/');
+    }
+    return item.url.replace('/upload/', '/upload/c_limit,w_1200,q_auto,f_auto/');
 }
 
 function lbPreload(photos, index) {
     [index - 1, index + 1].forEach(i => {
-        if (i >= 0 && i < photos.length) {
+        if (i >= 0 && i < photos.length && photos[i].type !== 'video') {
             const img = new Image();
-            img.src = viewUrl(photos[i].url);
+            img.src = viewUrl(photos[i]);
         }
     });
 }
@@ -2322,19 +2353,41 @@ function lbShow(index) {
     const photos = lbVisible();
     if (!photos.length) return;
     lbIndex = Math.max(0, Math.min(index, photos.length - 1));
-    const url = viewUrl(photos[lbIndex].url);
-    if (lightboxImg.src !== url) {
-        lightboxImg.style.opacity = '0';
-        lightboxImg.onload = () => { lightboxImg.style.opacity = '1'; };
-        lightboxImg.src = url;
+    const item = photos[lbIndex];
+    const url = viewUrl(item);
+
+    if (item.type === 'video') {
+        lightboxImg.style.display = 'none';
+        lightboxVideo.style.display = '';
+        lightboxVideo.style.opacity = '0';
+        lightboxVideo.src = url;
+        lightboxVideo.load();
+        lightboxVideo.style.opacity = '1';
+    } else {
+        lightboxVideo.pause();
+        lightboxVideo.src = '';
+        lightboxVideo.style.display = 'none';
+        lightboxImg.style.display = '';
+        if (lightboxImg.src !== url) {
+            lightboxImg.style.opacity = '0';
+            lightboxImg.onload = () => { lightboxImg.style.opacity = '1'; };
+            lightboxImg.src = url;
+        }
     }
+
     document.getElementById('lightboxPrev').disabled = lbIndex === 0;
     document.getElementById('lightboxNext').disabled = lbIndex === photos.length - 1;
     lbPreload(photos, lbIndex);
 }
 
-document.getElementById('lightboxClose').addEventListener('click', () => lightbox.classList.remove('active'));
-lightbox.addEventListener('click', (e) => { if (e.target === lightbox) lightbox.classList.remove('active'); });
+function lbClose() {
+    lightboxVideo.pause();
+    lightboxVideo.src = '';
+    lightbox.classList.remove('active');
+}
+
+document.getElementById('lightboxClose').addEventListener('click', lbClose);
+lightbox.addEventListener('click', (e) => { if (e.target === lightbox) lbClose(); });
 document.getElementById('lightboxPrev').addEventListener('click', (e) => { e.stopPropagation(); lbShow(lbIndex - 1); });
 document.getElementById('lightboxNext').addEventListener('click', (e) => { e.stopPropagation(); lbShow(lbIndex + 1); });
 
@@ -2343,13 +2396,14 @@ document.addEventListener('keydown', (e) => {
     if (!lightbox.classList.contains('active')) return;
     if (e.key === 'ArrowLeft') lbShow(lbIndex - 1);
     else if (e.key === 'ArrowRight') lbShow(lbIndex + 1);
-    else if (e.key === 'Escape') lightbox.classList.remove('active');
+    else if (e.key === 'Escape') lbClose();
 });
 
-// Touch swipe
+// Touch swipe — disabled when touching the video element
 let touchStartX = 0;
 lightbox.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; }, { passive: true });
 lightbox.addEventListener('touchend', (e) => {
+    if (e.target === lightboxVideo) return;
     const dx = e.changedTouches[0].clientX - touchStartX;
     if (Math.abs(dx) > 50) dx < 0 ? lbShow(lbIndex + 1) : lbShow(lbIndex - 1);
 });
@@ -2370,9 +2424,9 @@ document.querySelectorAll('.day-card[data-date]').forEach(card => {
     section.className = 'photo-section';
     section.innerHTML = `
         <div class="photo-section-header">
-            <span class="photo-section-title">📷 Photos</span>
+            <span class="photo-section-title">📷 Photos & Videos</span>
             <button class="photo-add-btn" onclick="document.getElementById('photo-input-${date}').click()">+ Add</button>
-            <input type="file" id="photo-input-${date}" accept="image/*" multiple style="display:none"
+            <input type="file" id="photo-input-${date}" accept="image/*,video/*" multiple style="display:none"
                    onchange="Array.from(this.files).forEach(f => addPhoto('${date}', f)); this.value='';">
         </div>
         <div class="photo-grid"></div>

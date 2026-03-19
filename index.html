@@ -2250,10 +2250,12 @@ function fetchPhotosForDate(date) {
                 url: `${CLOUDINARY_BASE}/${type}/upload/${r.public_id}.${r.format}`,
                 publicId: r.public_id,
                 type,
+                createdAt: r.created_at || '',
             })))
             .catch(() => []);
     return Promise.all([fetchList('image'), fetchList('video')])
-        .then(([images, videos]) => [...images, ...videos]);
+        .then(([images, videos]) => [...images, ...videos]
+            .sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
 }
 
 function _renderGrid(date, grid, photos) {

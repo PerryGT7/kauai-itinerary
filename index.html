@@ -1694,6 +1694,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr@7/dist/lite.umd.js"></script>
 <script>
 // Toggle day cards
 function toggleDay(header) {
@@ -2250,10 +2251,12 @@ function fetchPhotosForDate(date) {
                 url: `${CLOUDINARY_BASE}/${type}/upload/${r.public_id}.${r.format}`,
                 publicId: r.public_id,
                 type,
+                takenAt: r.context?.custom?.taken_at || r.created_at || '',
             })))
             .catch(() => []);
     return Promise.all([fetchList('image'), fetchList('video')])
-        .then(([images, videos]) => [...images, ...videos]);
+        .then(([images, videos]) => [...images, ...videos]
+            .sort((a, b) => a.takenAt.localeCompare(b.takenAt)));
 }
 
 function _renderGrid(date, grid, photos) {
@@ -2281,7 +2284,18 @@ function renderPhotos(date, container) {
     }
 }
 
-function addPhoto(date, file) {
+async function getMediaTimestamp(file) {
+    if (file.type.startsWith('image/')) {
+        try {
+            const exif = await exifr.parse(file, ['DateTimeOriginal', 'DateTime']);
+            const dt = exif?.DateTimeOriginal || exif?.DateTime;
+            if (dt) return (dt instanceof Date ? dt : new Date(dt)).toISOString();
+        } catch {}
+    }
+    return new Date(file.lastModified).toISOString();
+}
+
+async function addPhoto(date, file) {
     const isVideo = file.type.startsWith('video/');
     const resourceType = isVideo ? 'video' : 'image';
     const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/${resourceType}/upload`;
@@ -2290,17 +2304,21 @@ function addPhoto(date, file) {
     const btn = section?.querySelector('.photo-add-btn');
     if (btn) { btn.textContent = 'Uploading…'; btn.disabled = true; }
 
+    const takenAt = await getMediaTimestamp(file);
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', CLOUDINARY_PRESET);
     formData.append('folder', `kauai-trip/${date}`);
     formData.append('tags', `kauai-${date}`);
+    formData.append('context', `taken_at=${takenAt}`);
 
     fetch(uploadUrl, { method: 'POST', body: formData })
         .then(res => { if (!res.ok) throw new Error('Upload failed'); return res.json(); })
         .then(data => {
             if (!photoCache[date]) photoCache[date] = [];
-            photoCache[date].push({ url: data.secure_url, publicId: data.public_id, type: resourceType });
+            photoCache[date].push({ url: data.secure_url, publicId: data.public_id, type: resourceType, takenAt });
+            photoCache[date].sort((a, b) => a.takenAt.localeCompare(b.takenAt));
             if (section) _renderGrid(date, section.querySelector('.photo-grid'), photoCache[date]);
         })
         .catch(err => {
@@ -2635,10 +2653,18 @@ function saveFoundLocal(set) {
 async function loadFoundFromCloud() {
     try {
         const res = await fetch(SPY_FETCH_URL + '?t=' + Date.now());
-        if (!res.ok) return null;
-        const data = await res.json();
+        if (!res.ok) {
+            console.warn('[EyeSpy] Cloud fetch failed:', res.status, res.statusText);
+            return null;
+        }
+        const text = await res.text();
+        const data = JSON.parse(text);
+        console.log('[EyeSpy] Loaded from cloud:', data);
         return Array.isArray(data) ? new Set(data) : null;
-    } catch { return null; }
+    } catch (e) {
+        console.warn('[EyeSpy] Cloud fetch error:', e);
+        return null;
+    }
 }
 
 async function saveFoundToCloud(set) {
@@ -2652,9 +2678,20 @@ async function saveFoundToCloud(set) {
         fd.append('resource_type', 'raw');
         fd.append('overwrite', 'true');
         const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/raw/upload`, { method: 'POST', body: fd });
-        if (res.ok) { spySetStatus('Synced ✓'); setTimeout(() => spySetStatus(''), 2000); }
-        else { spySetStatus('Sync failed'); }
-    } catch { spySetStatus('Offline'); }
+        const body = await res.json();
+        if (res.ok) {
+            console.log('[EyeSpy] Saved to cloud:', body);
+            spySetStatus('Synced ✓');
+            setTimeout(() => spySetStatus(''), 2000);
+        } else {
+            const msg = body?.error?.message || res.statusText;
+            console.error('[EyeSpy] Upload failed:', msg, body);
+            spySetStatus(`Sync failed: ${msg}`);
+        }
+    } catch (e) {
+        console.error('[EyeSpy] Upload error:', e);
+        spySetStatus('Offline');
+    }
 }
 
 function scheduleSyncToCloud(set) {

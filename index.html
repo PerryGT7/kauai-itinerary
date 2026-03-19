@@ -1704,12 +1704,6 @@ function openCard(card) {
     body.addEventListener('transitionend', () => {
         if (card.classList.contains('open')) body.style.maxHeight = 'none';
     }, { once: true });
-    // Lazy-load photos the first time a card is opened
-    const date = card.dataset.date;
-    if (date && !photoCache[date]) {
-        const section = card.querySelector('.photo-section');
-        if (section) renderPhotos(date, section);
-    }
 }
 function closeCard(card) {
     const body = card.querySelector('.day-body');
@@ -2495,6 +2489,7 @@ document.querySelectorAll('.day-card[data-date]').forEach(card => {
         <div class="photo-grid"></div>
     `;
     content.appendChild(section);
+    renderPhotos(date, section);
 });
 
 // ============================================================

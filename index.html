@@ -2283,7 +2283,7 @@ function fetchPhotosForDate(date) {
     const tag = `kauai-${date}`;
     // ?t= bypasses Cloudinary CDN cache so newly uploaded photos appear immediately
     const fetchList = (type) =>
-        fetch(`${CLOUDINARY_BASE}/${type}/list/${tag}.json?t=${Date.now()}`)
+        fetch(`${CLOUDINARY_BASE}/${type}/list/${tag}.json`)
             .then(res => res.ok ? res.json() : { resources: [] })
             .then(data => (data.resources || []).map(r => ({
                 url: `${CLOUDINARY_BASE}/${type}/upload/${r.public_id}.${r.format}`,

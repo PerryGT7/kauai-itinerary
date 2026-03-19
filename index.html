@@ -2180,6 +2180,7 @@ const TRIP_DATES = [
     '2026-03-20','2026-03-21','2026-03-22','2026-03-23','2026-03-24',
 ];
 
+let autoOpenDone = false;
 function updateCountdown() {
     const el = document.getElementById('countdown');
     const now = new Date();
@@ -2206,8 +2207,9 @@ function updateCountdown() {
         const dayNum = dayIdx >= 0 ? dayIdx + 1 : '?';
         el.innerHTML = `<div class="countdown-trip-day">🌺 Day ${dayNum} of your trip!</div>`;
 
-        // Auto-open today's card and highlight nav
-        if (dayIdx >= 0) {
+        // Auto-open today's card once on load
+        if (dayIdx >= 0 && !autoOpenDone) {
+            autoOpenDone = true;
             const todayCard = document.getElementById('day' + dayIdx);
             if (todayCard && !todayCard.classList.contains('open')) {
                 document.querySelectorAll('.day-card.open').forEach(c => closeCard(c));

@@ -185,7 +185,7 @@
             overflow: hidden;
             transition: max-height 0.4s ease;
         }
-        .day-card.open .day-body { max-height: 2000px; }
+        .day-card.open .day-body { max-height: none; }
         .day-content { padding: 0 1.25rem 1.25rem; }
 
         /* Items */
@@ -1697,9 +1697,23 @@
 <script src="https://cdn.jsdelivr.net/npm/exifr@7/dist/lite.umd.js"></script>
 <script>
 // Toggle day cards
+function openCard(card) {
+    const body = card.querySelector('.day-body');
+    card.classList.add('open');
+    body.style.maxHeight = body.scrollHeight + 'px';
+    body.addEventListener('transitionend', () => {
+        if (card.classList.contains('open')) body.style.maxHeight = 'none';
+    }, { once: true });
+}
+function closeCard(card) {
+    const body = card.querySelector('.day-body');
+    body.style.maxHeight = body.scrollHeight + 'px';
+    requestAnimationFrame(() => requestAnimationFrame(() => { body.style.maxHeight = '0'; }));
+    card.classList.remove('open');
+}
 function toggleDay(header) {
     const card = header.closest('.day-card');
-    card.classList.toggle('open');
+    card.classList.contains('open') ? closeCard(card) : openCard(card);
 }
 
 // ============================================================
@@ -2196,8 +2210,8 @@ function updateCountdown() {
         if (dayIdx >= 0) {
             const todayCard = document.getElementById('day' + dayIdx);
             if (todayCard && !todayCard.classList.contains('open')) {
-                document.querySelectorAll('.day-card.open').forEach(c => c.classList.remove('open'));
-                todayCard.classList.add('open');
+                document.querySelectorAll('.day-card.open').forEach(c => closeCard(c));
+                openCard(todayCard);
                 setTimeout(() => todayCard.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
             }
         }

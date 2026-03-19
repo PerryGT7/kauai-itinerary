@@ -1704,6 +1704,12 @@ function openCard(card) {
     body.addEventListener('transitionend', () => {
         if (card.classList.contains('open')) body.style.maxHeight = 'none';
     }, { once: true });
+    // Lazy-load photos the first time a card is opened
+    const date = card.dataset.date;
+    if (date && !photoCache[date]) {
+        const section = card.querySelector('.photo-section');
+        if (section) renderPhotos(date, section);
+    }
 }
 function closeCard(card) {
     const body = card.querySelector('.day-body');
@@ -2255,11 +2261,29 @@ function thumbUrl(item) {
     return item.url.replace('/upload/', '/upload/c_fill,w_160,h_160,q_auto,f_auto/');
 }
 
+// localStorage backup — keeps photos visible on this device even when
+// Cloudinary's CDN tag-list is stale (can lag by 60 s or more).
+function saveLocalPhoto(date, photo) {
+    try {
+        const key = `kauai-photos-${date}`;
+        const existing = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!existing.find(p => p.publicId === photo.publicId)) {
+            existing.push(photo);
+            localStorage.setItem(key, JSON.stringify(existing));
+        }
+    } catch {}
+}
+function getLocalPhotos(date) {
+    try { return JSON.parse(localStorage.getItem(`kauai-photos-${date}`) || '[]'); }
+    catch { return []; }
+}
+
 // Fetch all photos + videos for a day from Cloudinary by tag
 function fetchPhotosForDate(date) {
     const tag = `kauai-${date}`;
+    // ?t= bypasses Cloudinary CDN cache so newly uploaded photos appear immediately
     const fetchList = (type) =>
-        fetch(`${CLOUDINARY_BASE}/${type}/list/${tag}.json`)
+        fetch(`${CLOUDINARY_BASE}/${type}/list/${tag}.json?t=${Date.now()}`)
             .then(res => res.ok ? res.json() : { resources: [] })
             .then(data => (data.resources || []).map(r => ({
                 url: `${CLOUDINARY_BASE}/${type}/upload/${r.public_id}.${r.format}`,
@@ -2269,8 +2293,13 @@ function fetchPhotosForDate(date) {
             })))
             .catch(() => []);
     return Promise.all([fetchList('image'), fetchList('video')])
-        .then(([images, videos]) => [...images, ...videos]
-            .sort((a, b) => a.takenAt.localeCompare(b.takenAt)));
+        .then(([images, videos]) => {
+            const cloudPhotos = [...images, ...videos];
+            // Merge with any locally-uploaded photos not yet reflected in cloud list
+            const cloudIds = new Set(cloudPhotos.map(p => p.publicId));
+            const merged = [...cloudPhotos, ...getLocalPhotos(date).filter(p => !cloudIds.has(p.publicId))];
+            return merged.sort((a, b) => a.takenAt.localeCompare(b.takenAt));
+        });
 }
 
 function _renderGrid(date, grid, photos) {
@@ -2330,8 +2359,10 @@ async function addPhoto(date, file) {
     fetch(uploadUrl, { method: 'POST', body: formData })
         .then(res => { if (!res.ok) throw new Error('Upload failed'); return res.json(); })
         .then(data => {
+            const item = { url: data.secure_url, publicId: data.public_id, type: resourceType, takenAt };
+            saveLocalPhoto(date, item);
             if (!photoCache[date]) photoCache[date] = [];
-            photoCache[date].push({ url: data.secure_url, publicId: data.public_id, type: resourceType, takenAt });
+            photoCache[date].push(item);
             photoCache[date].sort((a, b) => a.takenAt.localeCompare(b.takenAt));
             if (section) _renderGrid(date, section.querySelector('.photo-grid'), photoCache[date]);
         })
@@ -2464,7 +2495,6 @@ document.querySelectorAll('.day-card[data-date]').forEach(card => {
         <div class="photo-grid"></div>
     `;
     content.appendChild(section);
-    renderPhotos(date, section);
 });
 
 // ============================================================

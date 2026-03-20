@@ -2248,6 +2248,20 @@ function markDeleted(publicId) {
     localStorage.setItem(DELETED_KEY, JSON.stringify([...deleted]));
 }
 
+// Duplicate-upload prevention: fingerprint = "name|size" stored per day
+function getUploadedKeys(date) {
+    try { return new Set(JSON.parse(localStorage.getItem(`kauai-uploaded-keys-${date}`) || '[]')); }
+    catch { return new Set(); }
+}
+function markUploaded(date, file) {
+    const keys = getUploadedKeys(date);
+    keys.add(`${file.name}|${file.size}`);
+    localStorage.setItem(`kauai-uploaded-keys-${date}`, JSON.stringify([...keys]));
+}
+function isDuplicate(date, file) {
+    return getUploadedKeys(date).has(`${file.name}|${file.size}`);
+}
+
 function thumbUrl(item) {
     if (item.type === 'video') {
         return item.url
@@ -2335,6 +2349,8 @@ async function getMediaTimestamp(file) {
 }
 
 async function addPhoto(date, file) {
+    if (isDuplicate(date, file)) return; // already uploaded this file
+
     const isVideo = file.type.startsWith('video/');
     const resourceType = isVideo ? 'video' : 'image';
     const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/${resourceType}/upload`;
@@ -2356,6 +2372,7 @@ async function addPhoto(date, file) {
         .then(res => { if (!res.ok) throw new Error('Upload failed'); return res.json(); })
         .then(data => {
             const item = { url: data.secure_url, publicId: data.public_id, type: resourceType, takenAt };
+            markUploaded(date, file);
             saveLocalPhoto(date, item);
             if (!photoCache[date]) photoCache[date] = [];
             photoCache[date].push(item);

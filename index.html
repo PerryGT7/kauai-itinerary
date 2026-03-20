@@ -2299,15 +2299,24 @@ function fetchPhotosForDate(date) {
                 url: `${CLOUDINARY_BASE}/${type}/upload/${r.public_id}.${r.format}`,
                 publicId: r.public_id,
                 type,
+                bytes: r.bytes || 0,
                 takenAt: r.context?.custom?.taken_at || r.created_at || '',
             })))
             .catch(() => []);
     return Promise.all([fetchList('image'), fetchList('video')])
         .then(([images, videos]) => {
             const cloudPhotos = [...images, ...videos];
+            // Deduplicate by file size — identical bytes == identical file
+            const seenBytes = new Set();
+            const deduped = cloudPhotos.filter(p => {
+                if (!p.bytes) return true;       // no size info, keep it
+                if (seenBytes.has(p.bytes)) return false; // duplicate, drop it
+                seenBytes.add(p.bytes);
+                return true;
+            });
             // Merge with any locally-uploaded photos not yet reflected in cloud list
-            const cloudIds = new Set(cloudPhotos.map(p => p.publicId));
-            const merged = [...cloudPhotos, ...getLocalPhotos(date).filter(p => !cloudIds.has(p.publicId))];
+            const cloudIds = new Set(deduped.map(p => p.publicId));
+            const merged = [...deduped, ...getLocalPhotos(date).filter(p => !cloudIds.has(p.publicId))];
             return merged.sort((a, b) => a.takenAt.localeCompare(b.takenAt));
         });
 }

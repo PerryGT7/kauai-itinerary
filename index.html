@@ -2324,18 +2324,20 @@ function fetchPhotosForDate(date) {
                 publicId: r.public_id,
                 type,
                 bytes: r.bytes || 0,
+                originalFilename: r.original_filename || '',
                 takenAt: r.context?.custom?.taken_at || r.created_at || '',
             })))
             .catch(() => []);
     return Promise.all([fetchList('image'), fetchList('video'), ensureCloudDeleted()])
         .then(([images, videos]) => {
             const cloudPhotos = [...images, ...videos];
-            // Deduplicate by file size — identical bytes == identical file
-            const seenBytes = new Set();
+            // Deduplicate: same original filename + same byte size = same file
+            const seenKeys = new Set();
             const deduped = cloudPhotos.filter(p => {
-                if (!p.bytes) return true;       // no size info, keep it
-                if (seenBytes.has(p.bytes)) return false; // duplicate, drop it
-                seenBytes.add(p.bytes);
+                if (!p.bytes || !p.originalFilename) return true; // can't fingerprint, keep it
+                const key = `${p.originalFilename}|${p.bytes}`;
+                if (seenKeys.has(key)) return false;
+                seenKeys.add(key);
                 return true;
             });
             // Merge with any locally-uploaded photos not yet reflected in cloud list
@@ -2382,7 +2384,11 @@ async function getMediaTimestamp(file) {
 }
 
 async function addPhoto(date, file) {
-    if (isDuplicate(date, file)) return; // already uploaded this file
+    // Cross-device duplicate check: if Cloudinary already has this filename+size, skip
+    const existing = photoCache[date] || [];
+    if (existing.some(p => p.originalFilename === file.name && p.bytes === file.size)) return;
+    // Same-device fast path
+    if (isDuplicate(date, file)) return;
 
     const isVideo = file.type.startsWith('video/');
     const resourceType = isVideo ? 'video' : 'image';
@@ -2404,7 +2410,7 @@ async function addPhoto(date, file) {
     fetch(uploadUrl, { method: 'POST', body: formData })
         .then(res => { if (!res.ok) throw new Error('Upload failed'); return res.json(); })
         .then(data => {
-            const item = { url: data.secure_url, publicId: data.public_id, type: resourceType, takenAt };
+            const item = { url: data.secure_url, publicId: data.public_id, type: resourceType, takenAt, bytes: file.size, originalFilename: file.name };
             markUploaded(date, file);
             saveLocalPhoto(date, item);
             if (!photoCache[date]) photoCache[date] = [];

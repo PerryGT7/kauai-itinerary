@@ -643,6 +643,22 @@
         .lightbox-nav.prev { left: 0; }
         .lightbox-nav.next { right: 0; }
         .lightbox-nav:disabled { opacity: 0.2; cursor: default; }
+        .lightbox-download {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            color: white;
+            font-size: 0.85rem;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            padding: 6px 14px;
+            cursor: pointer;
+            z-index: 2001;
+            text-decoration: none;
+            backdrop-filter: blur(4px);
+        }
+        .lightbox-download:hover { background: rgba(255,255,255,0.25); }
 
         /* Eye Spy Game */
         .eye-spy-section {
@@ -1665,6 +1681,7 @@
     <img id="lightboxImg" src="" alt="Photo">
     <video id="lightboxVideo" controls playsinline style="display:none"></video>
     <button class="lightbox-nav next" id="lightboxNext">&#8250;</button>
+    <a class="lightbox-download" id="lightboxDownload" download>⬇ Download</a>
 </div>
 
 <!-- Weather detail modal -->
@@ -1699,11 +1716,12 @@
 // Toggle day cards
 function openCard(card) {
     const body = card.querySelector('.day-body');
+    const h = body.scrollHeight; // measure BEFORE class change to avoid none→px transition
     card.classList.add('open');
-    body.style.maxHeight = body.scrollHeight + 'px';
-    body.addEventListener('transitionend', () => {
-        if (card.classList.contains('open')) body.style.maxHeight = 'none';
-    }, { once: true });
+    body.style.maxHeight = h + 'px';
+    const cleanup = () => { body.style.maxHeight = 'none'; };
+    body.addEventListener('transitionend', cleanup, { once: true });
+    setTimeout(cleanup, 450); // fallback if transitionend doesn't fire
 }
 function closeCard(card) {
     const body = card.querySelector('.day-body');
@@ -2207,15 +2225,17 @@ function updateCountdown() {
         const dayNum = dayIdx >= 0 ? dayIdx + 1 : '?';
         el.innerHTML = `<div class="countdown-trip-day">🌺 Day ${dayNum} of your trip!</div>`;
 
-        // Auto-open today's card once on load
+        // Auto-open today's card once on load — defer so photo sections exist in DOM
         if (dayIdx >= 0 && !autoOpenDone) {
             autoOpenDone = true;
-            const todayCard = document.getElementById('day' + dayIdx);
-            if (todayCard && !todayCard.classList.contains('open')) {
-                document.querySelectorAll('.day-card.open').forEach(c => closeCard(c));
-                openCard(todayCard);
-                setTimeout(() => todayCard.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
-            }
+            setTimeout(() => {
+                const todayCard = document.getElementById('day' + dayIdx);
+                if (todayCard && !todayCard.classList.contains('open')) {
+                    document.querySelectorAll('.day-card.open').forEach(c => closeCard(c));
+                    openCard(todayCard);
+                    setTimeout(() => todayCard.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+                }
+            }, 0);
         }
     } else {
         // Post-trip
@@ -2455,7 +2475,7 @@ const lightboxVideo = document.getElementById('lightboxVideo');
 let lbDate = null, lbIndex = 0;
 
 function lbVisible() {
-    const deleted = getDeleted();
+    const deleted = allDeleted();
     return (photoCache[lbDate] || []).filter(p => !deleted.has(p.publicId));
 }
 
@@ -2503,6 +2523,7 @@ function lbShow(index) {
 
     document.getElementById('lightboxPrev').disabled = lbIndex === 0;
     document.getElementById('lightboxNext').disabled = lbIndex === photos.length - 1;
+    document.getElementById('lightboxDownload').href = item.url.replace('/upload/', '/upload/fl_attachment/');
     lbPreload(photos, lbIndex);
 }
 

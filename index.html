@@ -2248,6 +2248,30 @@ function markDeleted(publicId) {
     localStorage.setItem(DELETED_KEY, JSON.stringify([...deleted]));
 }
 
+// Cross-device deletion sync: markers stored as tagged images in Cloudinary
+let cloudDeletedIds = null;
+let cloudDeletedPromise = null;
+function ensureCloudDeleted() {
+    if (cloudDeletedIds !== null) return Promise.resolve(cloudDeletedIds);
+    if (!cloudDeletedPromise) {
+        cloudDeletedPromise = fetch(`${CLOUDINARY_BASE}/image/list/kauai-deleted.json`)
+            .then(r => r.ok ? r.json() : { resources: [] })
+            .then(data => {
+                cloudDeletedIds = new Set(
+                    (data.resources || []).map(r => r.context?.custom?.deleted_id).filter(Boolean)
+                );
+                return cloudDeletedIds;
+            })
+            .catch(() => { cloudDeletedIds = new Set(); return cloudDeletedIds; });
+    }
+    return cloudDeletedPromise;
+}
+function allDeleted() {
+    const local = getDeleted();
+    if (cloudDeletedIds) cloudDeletedIds.forEach(id => local.add(id));
+    return local;
+}
+
 // Duplicate-upload prevention: fingerprint = "name|size" stored per day
 function getUploadedKeys(date) {
     try { return new Set(JSON.parse(localStorage.getItem(`kauai-uploaded-keys-${date}`) || '[]')); }
@@ -2303,7 +2327,7 @@ function fetchPhotosForDate(date) {
                 takenAt: r.context?.custom?.taken_at || r.created_at || '',
             })))
             .catch(() => []);
-    return Promise.all([fetchList('image'), fetchList('video')])
+    return Promise.all([fetchList('image'), fetchList('video'), ensureCloudDeleted()])
         .then(([images, videos]) => {
             const cloudPhotos = [...images, ...videos];
             // Deduplicate by file size — identical bytes == identical file
@@ -2322,7 +2346,7 @@ function fetchPhotosForDate(date) {
 }
 
 function _renderGrid(date, grid, photos) {
-    const deleted = getDeleted();
+    const deleted = allDeleted();
     const visible = photos.filter(p => !deleted.has(p.publicId));
     grid.innerHTML = visible.map((p, i) => `
         <div class="photo-thumb">
@@ -2398,13 +2422,24 @@ async function addPhoto(date, file) {
 }
 
 window.deletePhoto = function(date, index) {
-    const deleted = getDeleted();
+    const deleted = allDeleted();
     const visible = (photoCache[date] || []).filter(p => !deleted.has(p.publicId));
     const photo = visible[index];
     if (!photo) return;
+
+    // Optimistic local update
     markDeleted(photo.publicId);
+    if (cloudDeletedIds) cloudDeletedIds.add(photo.publicId);
     const section = document.querySelector(`.day-card[data-date="${date}"] .photo-section`);
     if (section) _renderGrid(date, section.querySelector('.photo-grid'), photoCache[date] || []);
+
+    // Persist to Cloudinary so all devices see the deletion
+    const fd = new FormData();
+    fd.append('file', 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+    fd.append('upload_preset', CLOUDINARY_PRESET);
+    fd.append('tags', 'kauai-deleted');
+    fd.append('context', `deleted_id=${photo.publicId}`);
+    fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: fd }).catch(() => {});
 };
 
 // Lightbox

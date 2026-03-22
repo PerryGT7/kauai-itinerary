@@ -2246,15 +2246,13 @@ updateCountdown();
 setInterval(updateCountdown, 1000);
 
 // ============================================================
-// PHOTO JOURNAL (Cloudinary — shared across all devices)
+// PHOTO JOURNAL (S3 via Lambda API — shared across all devices)
 // ============================================================
-const CLOUDINARY_CLOUD      = 'dgzktnhe3';
-const CLOUDINARY_PRESET     = 'Kauai-itinerary';
-const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`;
-const CLOUDINARY_BASE       = `https://res.cloudinary.com/${CLOUDINARY_CLOUD}`;
-const DELETED_KEY           = 'kauai-hidden-photos'; // local hide-list (public_ids)
+const API_BASE = 'YOUR_API_URL'; // replace with SAM output ApiUrl after `sam deploy`
+const TRIP_ID  = 'kauai-2026';
+const DELETED_KEY = 'kauai-hidden-photos'; // local hide-list (S3 keys)
 
-// In-memory cache: date → [{url, publicId}]
+// In-memory cache: date → [{url, key, type, size, originalFilename, takenAt}]
 const photoCache = {};
 
 function getDeleted() {
@@ -2262,34 +2260,14 @@ function getDeleted() {
     catch { return new Set(); }
 }
 
-function markDeleted(publicId) {
+function markDeleted(key) {
     const deleted = getDeleted();
-    deleted.add(publicId);
+    deleted.add(key);
     localStorage.setItem(DELETED_KEY, JSON.stringify([...deleted]));
 }
 
-// Cross-device deletion sync: markers stored as tagged images in Cloudinary
-let cloudDeletedIds = null;
-let cloudDeletedPromise = null;
-function ensureCloudDeleted() {
-    if (cloudDeletedIds !== null) return Promise.resolve(cloudDeletedIds);
-    if (!cloudDeletedPromise) {
-        cloudDeletedPromise = fetch(`${CLOUDINARY_BASE}/image/list/kauai-deleted.json`)
-            .then(r => r.ok ? r.json() : { resources: [] })
-            .then(data => {
-                cloudDeletedIds = new Set(
-                    (data.resources || []).map(r => r.context?.custom?.deleted_id).filter(Boolean)
-                );
-                return cloudDeletedIds;
-            })
-            .catch(() => { cloudDeletedIds = new Set(); return cloudDeletedIds; });
-    }
-    return cloudDeletedPromise;
-}
 function allDeleted() {
-    const local = getDeleted();
-    if (cloudDeletedIds) cloudDeletedIds.forEach(id => local.add(id));
-    return local;
+    return getDeleted();
 }
 
 // Duplicate-upload prevention: fingerprint = "name|size" stored per day
@@ -2306,24 +2284,17 @@ function isDuplicate(date, file) {
     return getUploadedKeys(date).has(`${file.name}|${file.size}`);
 }
 
-function thumbUrl(item) {
-    if (item.type === 'video') {
-        return item.url
-            .replace('/video/upload/', '/video/upload/c_fill,w_160,h_160,so_0,q_auto/')
-            .replace(/\.\w+$/, '.jpg');
-    }
-    return item.url.replace('/upload/', '/upload/c_fill,w_160,h_160,q_auto,f_auto/');
-}
+// S3 URLs are direct — no transform params needed
+function thumbUrl(item) { return item.url; }
 
-// localStorage backup — keeps photos visible on this device even when
-// Cloudinary's CDN tag-list is stale (can lag by 60 s or more).
+// localStorage backup — keeps newly-uploaded photos visible immediately
 function saveLocalPhoto(date, photo) {
     try {
-        const key = `kauai-photos-${date}`;
-        const existing = JSON.parse(localStorage.getItem(key) || '[]');
-        if (!existing.find(p => p.publicId === photo.publicId)) {
+        const storageKey = `kauai-photos-${date}`;
+        const existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        if (!existing.find(p => p.key === photo.key)) {
             existing.push(photo);
-            localStorage.setItem(key, JSON.stringify(existing));
+            localStorage.setItem(storageKey, JSON.stringify(existing));
         }
     } catch {}
 }
@@ -2332,44 +2303,30 @@ function getLocalPhotos(date) {
     catch { return []; }
 }
 
-// Fetch all photos + videos for a day from Cloudinary by tag
+// Fetch all photos for a day from S3 via Lambda
 function fetchPhotosForDate(date) {
-    const tag = `kauai-${date}`;
-    // ?t= bypasses Cloudinary CDN cache so newly uploaded photos appear immediately
-    const fetchList = (type) =>
-        fetch(`${CLOUDINARY_BASE}/${type}/list/${tag}.json`)
-            .then(res => res.ok ? res.json() : { resources: [] })
-            .then(data => (data.resources || []).map(r => ({
-                url: `${CLOUDINARY_BASE}/${type}/upload/${r.public_id}.${r.format}`,
-                publicId: r.public_id,
-                type,
-                bytes: r.bytes || 0,
-                originalFilename: r.original_filename || '',
-                takenAt: r.context?.custom?.taken_at || r.created_at || '',
-            })))
-            .catch(() => []);
-    return Promise.all([fetchList('image'), fetchList('video'), ensureCloudDeleted()])
-        .then(([images, videos]) => {
-            const cloudPhotos = [...images, ...videos];
-            // Deduplicate: same original filename + same byte size = same file
-            const seenKeys = new Set();
-            const deduped = cloudPhotos.filter(p => {
-                if (!p.bytes || !p.originalFilename) return true; // can't fingerprint, keep it
-                const key = `${p.originalFilename}|${p.bytes}`;
-                if (seenKeys.has(key)) return false;
-                seenKeys.add(key);
-                return true;
-            });
-            // Merge with any locally-uploaded photos not yet reflected in cloud list
-            const cloudIds = new Set(deduped.map(p => p.publicId));
-            const merged = [...deduped, ...getLocalPhotos(date).filter(p => !cloudIds.has(p.publicId))];
+    return fetch(`${API_BASE}/trips/${TRIP_ID}/photos?date=${date}`)
+        .then(res => res.ok ? res.json() : { photos: [] })
+        .then(data => {
+            const s3Photos = (data.photos || []).map(p => ({
+                url: p.url,
+                key: p.key,
+                type: /\.(mp4|mov|webm|avi)$/i.test(p.key) ? 'video' : 'image',
+                size: p.size || 0,
+                originalFilename: p.key.split('/').pop(),
+                takenAt: p.lastModified || '',
+            }));
+            // Merge with locally-cached photos not yet in S3 listing
+            const s3Keys = new Set(s3Photos.map(p => p.key));
+            const merged = [...s3Photos, ...getLocalPhotos(date).filter(p => !s3Keys.has(p.key))];
             return merged.sort((a, b) => a.takenAt.localeCompare(b.takenAt));
-        });
+        })
+        .catch(() => getLocalPhotos(date));
 }
 
 function _renderGrid(date, grid, photos) {
     const deleted = allDeleted();
-    const visible = photos.filter(p => !deleted.has(p.publicId));
+    const visible = photos.filter(p => !deleted.has(p.key));
     grid.innerHTML = visible.map((p, i) => `
         <div class="photo-thumb">
             <img src="${thumbUrl(p)}" alt="Trip media" loading="lazy" onclick="openLightbox('${date}', ${i})">
@@ -2404,15 +2361,11 @@ async function getMediaTimestamp(file) {
 }
 
 async function addPhoto(date, file) {
-    // Cross-device duplicate check: if Cloudinary already has this filename+size, skip
+    // Cross-device duplicate check: if S3 already has this filename+size, skip
     const existing = photoCache[date] || [];
-    if (existing.some(p => p.originalFilename === file.name && p.bytes === file.size)) return;
+    if (existing.some(p => p.originalFilename === file.name && p.size === file.size)) return;
     // Same-device fast path
     if (isDuplicate(date, file)) return;
-
-    const isVideo = file.type.startsWith('video/');
-    const resourceType = isVideo ? 'video' : 'image';
-    const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/${resourceType}/upload`;
 
     const section = document.querySelector(`.day-card[data-date="${date}"] .photo-section`);
     const btn = section?.querySelector('.photo-add-btn');
@@ -2420,52 +2373,57 @@ async function addPhoto(date, file) {
 
     const takenAt = await getMediaTimestamp(file);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', CLOUDINARY_PRESET);
-    formData.append('folder', `kauai-trip/${date}`);
-    formData.append('tags', `kauai-${date}`);
-    formData.append('context', `taken_at=${takenAt}`);
-
-    fetch(uploadUrl, { method: 'POST', body: formData })
-        .then(res => { if (!res.ok) throw new Error('Upload failed'); return res.json(); })
-        .then(data => {
-            const item = { url: data.secure_url, publicId: data.public_id, type: resourceType, takenAt, bytes: file.size, originalFilename: file.name };
-            markUploaded(date, file);
-            saveLocalPhoto(date, item);
-            if (!photoCache[date]) photoCache[date] = [];
-            photoCache[date].push(item);
-            photoCache[date].sort((a, b) => a.takenAt.localeCompare(b.takenAt));
-            if (section) _renderGrid(date, section.querySelector('.photo-grid'), photoCache[date]);
-        })
-        .catch(err => {
-            console.error('Cloudinary upload error:', err);
-            alert('Upload failed. Please check your connection and try again.');
-        })
-        .finally(() => {
-            if (btn) { btn.textContent = '+ Add'; btn.disabled = false; }
+    try {
+        // 1. Get a presigned S3 PUT URL from Lambda
+        const urlRes = await fetch(`${API_BASE}/trips/${TRIP_ID}/upload-url`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: file.name, contentType: file.type, date }),
         });
+        if (!urlRes.ok) throw new Error('Could not get upload URL');
+        const { uploadUrl, key } = await urlRes.json();
+
+        // 2. PUT the file directly to S3 — no data passes through Lambda
+        const putRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': file.type },
+            body: file,
+        });
+        if (!putRes.ok) throw new Error('S3 upload failed');
+
+        const isVideo = file.type.startsWith('video/');
+        const item = { url: uploadUrl.split('?')[0], key, type: isVideo ? 'video' : 'image', takenAt, size: file.size, originalFilename: file.name };
+        markUploaded(date, file);
+        saveLocalPhoto(date, item);
+        if (!photoCache[date]) photoCache[date] = [];
+        photoCache[date].push(item);
+        photoCache[date].sort((a, b) => a.takenAt.localeCompare(b.takenAt));
+        if (section) _renderGrid(date, section.querySelector('.photo-grid'), photoCache[date]);
+    } catch (e) {
+        console.error('Upload error:', e);
+        alert('Upload failed. Please check your connection and try again.');
+    } finally {
+        if (btn) { btn.textContent = '+ Add'; btn.disabled = false; }
+    }
 }
 
 window.deletePhoto = function(date, index) {
     const deleted = allDeleted();
-    const visible = (photoCache[date] || []).filter(p => !deleted.has(p.publicId));
+    const visible = (photoCache[date] || []).filter(p => !deleted.has(p.key));
     const photo = visible[index];
     if (!photo) return;
 
     // Optimistic local update
-    markDeleted(photo.publicId);
-    if (cloudDeletedIds) cloudDeletedIds.add(photo.publicId);
+    markDeleted(photo.key);
     const section = document.querySelector(`.day-card[data-date="${date}"] .photo-section`);
     if (section) _renderGrid(date, section.querySelector('.photo-grid'), photoCache[date] || []);
 
-    // Persist to Cloudinary so all devices see the deletion
-    const fd = new FormData();
-    fd.append('file', 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
-    fd.append('upload_preset', CLOUDINARY_PRESET);
-    fd.append('tags', 'kauai-deleted');
-    fd.append('context', `deleted_id=${photo.publicId}`);
-    fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: fd }).catch(() => {});
+    // Permanently delete from S3 via Lambda
+    fetch(`${API_BASE}/trips/${TRIP_ID}/photos`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: photo.key }),
+    }).catch(() => {});
 };
 
 // Lightbox
@@ -2476,14 +2434,11 @@ let lbDate = null, lbIndex = 0;
 
 function lbVisible() {
     const deleted = allDeleted();
-    return (photoCache[lbDate] || []).filter(p => !deleted.has(p.publicId));
+    return (photoCache[lbDate] || []).filter(p => !deleted.has(p.key));
 }
 
 function viewUrl(item) {
-    if (item.type === 'video') {
-        return item.url.replace('/video/upload/', '/video/upload/c_limit,w_1200,q_auto/');
-    }
-    return item.url.replace('/upload/', '/upload/c_limit,w_1200,q_auto,f_auto/');
+    return item.url; // S3 presigned URLs are direct — no transforms needed
 }
 
 function lbPreload(photos, index) {
@@ -2523,7 +2478,7 @@ function lbShow(index) {
 
     document.getElementById('lightboxPrev').disabled = lbIndex === 0;
     document.getElementById('lightboxNext').disabled = lbIndex === photos.length - 1;
-    document.getElementById('lightboxDownload').href = item.url.replace('/upload/', '/upload/fl_attachment/');
+    document.getElementById('lightboxDownload').href = item.url;
     lbPreload(photos, lbIndex);
 }
 

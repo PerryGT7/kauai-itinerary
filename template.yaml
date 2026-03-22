@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Kintinery — photo storage API (S3 + Lambda + API Gateway)
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 10
+    MemorySize: 256
+    Environment:
+      Variables:
+        BUCKET_NAME: !Ref PhotoBucket
+        ALLOWED_ORIGIN: '*'
+
+Resources:
+
+  # ── S3 bucket ────────────────────────────────────────────────────────────────
+  PhotoBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'kintinery-photos-${AWS::AccountId}'
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: ['*']
+            AllowedMethods: [GET, PUT, POST, DELETE, HEAD]
+            AllowedHeaders: ['*']
+            MaxAge: 3600
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+
+  # ── API Gateway ───────────────────────────────────────────────────────────────
+  TripApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowMethods: "'GET,POST,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization'"
+        AllowOrigin: "'*'"
+
+  # ── Lambda: POST /trips/{id}/upload-url ──────────────────────────────────────
+  GetUploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: api/
+      Handler: handlers/getUploadUrl.handler
+      Description: Returns a presigned S3 PUT URL for direct browser upload
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref PhotoBucket
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TripApi
+            Path: /trips/{id}/upload-url
+            Method: POST
+
+  # ── Lambda: GET /trips/{id}/photos ───────────────────────────────────────────
+  ListPhotosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: api/
+      Handler: handlers/listPhotos.handler
+      Description: Lists all photos for a trip day (optional ?date= filter)
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref PhotoBucket
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TripApi
+            Path: /trips/{id}/photos
+            Method: GET
+
+  # ── Lambda: DELETE /trips/{id}/photos ────────────────────────────────────────
+  DeletePhotoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: api/
+      Handler: handlers/deletePhoto.handler
+      Description: Deletes a single photo by key
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref PhotoBucket
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TripApi
+            Path: /trips/{id}/photos
+            Method: DELETE
+
+Outputs:
+  ApiUrl:
+    Description: Base URL for the Kintinery API
+    Value: !Sub 'https://${TripApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+  BucketName:
+    Description: S3 bucket that stores trip photos
+    Value: !Ref PhotoBucket

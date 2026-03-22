@@ -1,0 +1,23 @@
+# SAM deployment configuration
+# Run `sam deploy --guided` the first time to populate stack name / S3 bucket.
+# After that, `sam deploy` uses these values automatically.
+
+version = 0.1
+
+[default]
+[default.global.parameters]
+stack_name = "kintinery"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+capabilities        = "CAPABILITY_IAM"
+confirm_changeset   = true
+resolve_s3          = true
+# ── Set your target region here ──────────────────────────────────────────────
+region              = "us-east-1"
+# ─────────────────────────────────────────────────────────────────────────────
+s3_prefix           = "kintinery"
+image_repositories  = []
